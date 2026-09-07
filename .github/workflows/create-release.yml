@@ -126,6 +126,7 @@ jobs:
 
       - name: Upload Firefox XPI to AMO for signing
         if: ${{ vars.AMO_ADDON_ID != '' }}
+        continue-on-error: true
         env:
           MOZILLA_JWT_ISSUER: ${{ secrets.MOZILLA_JWT_ISSUER }}
           MOZILLA_JWT_SECRET: ${{ secrets.MOZILLA_JWT_SECRET }}
