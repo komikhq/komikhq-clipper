@@ -56,6 +56,8 @@ function getExtension(url, contentType) {
   return "webp"; // default komiku menggunakan webp
 }
 
+const FETCH_TIMEOUT_MS = 30000;
+
 /**
  * Fetch semua gambar, buat ZIP, dan trigger download.
  */
@@ -69,15 +71,31 @@ async function downloadChapterAsZip(imageUrls, chapterInfo, tabId) {
   await chrome.action.setBadgeText({ text: "0%", tabId });
   await chrome.action.setBadgeBackgroundColor({ color: "#4164b2", tabId });
 
+  try {
+    await chrome.runtime.sendMessage({
+      action: "downloadProgress",
+      downloaded: 0,
+      total,
+      percent: 0,
+      currentFile: "Menghubungkan ke server gambar...",
+    });
+  } catch {
+    // Popup mungkin sudah tertutup, tidak masalah.
+  }
+
   for (let i = 0; i < imageUrls.length; i++) {
     const url = imageUrls[i];
 
     try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
       const response = await fetch(url, {
         headers: {
           Referer: "https://komiku.org/",
         },
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`);
@@ -108,8 +126,9 @@ async function downloadChapterAsZip(imageUrls, chapterInfo, tabId) {
         // Popup mungkin sudah tertutup, tidak masalah
       }
     } catch (err) {
-      errors.push({ index: i, url, error: err.message });
-      console.warn(`[KomikHQ Clipper] Gagal fetch gambar ${i + 1}:`, err.message);
+      const errorMessage = err.name === "AbortError" ? `Timeout setelah ${FETCH_TIMEOUT_MS / 1000} detik` : err.message;
+      errors.push({ index: i, url, error: errorMessage });
+      console.warn(`[KomikHQ Clipper] Gagal fetch gambar ${i + 1}:`, errorMessage);
     }
   }
 

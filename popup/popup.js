@@ -101,6 +101,91 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   }
 
+  function getExtension(url, contentType) {
+    const mimeMap = {
+      "image/webp": "webp",
+      "image/jpeg": "jpg",
+      "image/png": "png",
+      "image/gif": "gif",
+      "image/avif": "avif",
+    };
+
+    if (mimeMap[contentType]) return mimeMap[contentType];
+
+    try {
+      const match = new URL(url).pathname.match(/\.(\w+)$/);
+      if (match) return match[1].toLowerCase();
+    } catch {
+      // Gunakan ekstensi default di bawah.
+    }
+
+    return "webp";
+  }
+
+  async function fetchImage(url) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000);
+
+    try {
+      const response = await fetch(url, {
+        headers: { Referer: "https://komiku.org/" },
+        signal: controller.signal,
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return {
+        data: await response.arrayBuffer(),
+        extension: getExtension(url, response.headers.get("content-type") || ""),
+      };
+    } finally {
+      clearTimeout(timeoutId);
+    }
+  }
+
+  async function downloadChapterAsZip() {
+    const zip = new JSZip();
+    const { imageUrls, chapterInfo } = scannedData;
+    let downloaded = 0;
+    const errors = [];
+
+    for (let i = 0; i < imageUrls.length; i++) {
+      const fileName = `${String(i + 1).padStart(Math.max(3, String(imageUrls.length).length), "0")}`;
+
+      try {
+        const image = await fetchImage(imageUrls[i]);
+        zip.file(`${fileName}.${image.extension}`, image.data);
+        downloaded++;
+        const percent = Math.round((downloaded / imageUrls.length) * 100);
+        progressBar.style.width = `${percent}%`;
+        progressPercent.textContent = `${percent}%`;
+        progressStatus.textContent = `Mengunduh... (${fileName}.${image.extension})`;
+        progressDetail.textContent = `${downloaded} / ${imageUrls.length} file`;
+      } catch (err) {
+        const message = err.name === "AbortError" ? "Timeout setelah 30 detik" : err.message;
+        errors.push(`${i + 1}: ${message}`);
+        console.warn(`[KomikHQ Clipper] Gagal fetch gambar ${i + 1}:`, message);
+      }
+    }
+
+    if (downloaded === 0) throw new Error("Tidak ada gambar yang berhasil diunduh.");
+
+    progressStatus.textContent = "Membuat file ZIP...";
+    const blob = await zip.generateAsync({ type: "blob" });
+    const objectUrl = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = objectUrl;
+    anchor.download = `${chapterInfo.slug}.zip`;
+    anchor.style.display = "none";
+    document.body.appendChild(anchor);
+    anchor.click();
+    setTimeout(() => {
+      anchor.remove();
+      URL.revokeObjectURL(objectUrl);
+    }, 1000);
+
+    return { downloaded, total: imageUrls.length, zipFileName: anchor.download, errors };
+  }
+
   // Listen for progress updates from background service worker
   chrome.runtime.onMessage.addListener((message) => {
     if (message.action === "downloadProgress") {
@@ -125,20 +210,15 @@ document.addEventListener("DOMContentLoaded", async () => {
     progressDetail.textContent = `0 / ${scannedData.imageUrls.length} file`;
 
     try {
-      const result = await chrome.runtime.sendMessage({
-        action: "downloadZip",
-        imageUrls: scannedData.imageUrls,
-        chapterInfo: scannedData.chapterInfo,
-        tabId: activeTab.id,
-      });
+      const result = await downloadChapterAsZip();
 
-      if (result && result.ok) {
+      if (result) {
         progressBar.style.width = "100%";
         progressPercent.textContent = "100%";
-        progressStatus.textContent = "✅ Berhasil Diunduh!";
+        progressStatus.textContent = "Berhasil diunduh!";
         progressDetail.textContent = `${result.downloaded} file -> ${result.zipFileName}`;
       } else {
-        progressStatus.textContent = "❌ Gagal: " + (result?.error || "Terjadi kesalahan.");
+        progressStatus.textContent = "Gagal: Terjadi kesalahan.";
         btnDownload.disabled = false;
       }
     } catch (err) {

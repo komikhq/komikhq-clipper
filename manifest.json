@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "KomikHQ Clipper",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Scan & download chapter comic images as a sequentially-named ZIP file for KomikHQ.",
   "browser_specific_settings": {
     "gecko": {
@@ -30,11 +30,13 @@
   "permissions": [
     "activeTab",
     "scripting",
-    "downloads"
+    "downloads",
+    "alarms"
   ],
   "host_permissions": [
     "*://*.komiku.org/*",
-    "*://*.komiku.id/*"
+    "*://*.komiku.id/*",
+    "*://*.komiku.to/*"
   ],
   "background": {
     "service_worker": "service-worker/background.js"
