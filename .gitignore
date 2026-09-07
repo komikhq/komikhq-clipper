@@ -1,0 +1,25 @@
+# Build artifacts
+dist/
+build/
+*.crx
+*.xpi
+*.zip
+release_notes.md
+
+# Keys & secrets (any .pem in any subfolder)
+**/*.pem
+*.pem
+keys/
+.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Node (build scripts)
+node_modules/

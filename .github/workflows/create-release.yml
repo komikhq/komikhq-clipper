@@ -1,0 +1,136 @@
+name: Build & Release Extension Packs
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-extensions:
+    name: Build Extension Packs & Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Extract Version from Tag
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "TAG_NAME=$GITHUB_REF_NAME" >> $GITHUB_ENV
+          echo "Building version: $VERSION"
+
+      - name: Patch manifest.json Version
+        run: |
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
+            manifest.version = process.env.VERSION;
+            fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+            console.log('Patched manifest.json to version:', manifest.version);
+          "
+
+      - name: Build Chromium Extension (ZIP)
+        run: |
+          mkdir -p dist
+          zip -r "dist/komikhq-clipper-${TAG_NAME}-chromium.zip" \
+            manifest.json \
+            assets/ \
+            lib/ \
+            popup/ \
+            service-worker/ \
+            content-scripts/ \
+            -x "*.pem" "*.md" ".git/*" ".github/*" "dist/*" "node_modules/*" "scripts/*" "keys/*"
+          echo "✅ Chromium ZIP built"
+          ls -lh dist/
+
+      - name: Build Chromium Extension (CRX3 Self-Signed)
+        run: |
+          # Decode PEM key from secret
+          echo "${{ secrets.EXTENSION_PEM_KEY }}" > /tmp/extension.pem
+
+          # Install crx3 CLI
+          npm install -g crx3
+
+          # Create a clean build directory (crx3 packs entire directory)
+          mkdir -p /tmp/crx-build
+          cp -r manifest.json assets/ lib/ popup/ service-worker/ content-scripts/ /tmp/crx-build/
+
+          # Pack CRX3 with the private key
+          crx3 pack /tmp/crx-build \
+            -p /tmp/extension.pem \
+            -o "dist/komikhq-clipper-${TAG_NAME}.crx"
+
+          # Cleanup
+          rm -f /tmp/extension.pem
+          rm -rf /tmp/crx-build
+          echo "✅ CRX3 built with consistent Extension ID"
+          ls -lh dist/
+
+      - name: Build Firefox Extension (XPI)
+        run: |
+          # Create a temporary directory for Firefox build
+          mkdir -p /tmp/firefox-build
+          cp -r manifest.json assets/ lib/ popup/ service-worker/ content-scripts/ /tmp/firefox-build/
+
+          # Patch manifest for Firefox compatibility
+          node -e "
+            const fs = require('fs');
+            const manifest = JSON.parse(fs.readFileSync('/tmp/firefox-build/manifest.json', 'utf8'));
+
+            // Add Firefox-specific settings
+            manifest.browser_specific_settings = {
+              gecko: {
+                id: 'clipper@komikhq.org',
+                strict_min_version: '109.0'
+              }
+            };
+
+            // Firefox MV3 uses 'background.scripts' instead of 'service_worker'
+            if (manifest.background && manifest.background.service_worker) {
+              manifest.background = {
+                scripts: [manifest.background.service_worker]
+              };
+            }
+
+            fs.writeFileSync('/tmp/firefox-build/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
+            console.log('Patched manifest for Firefox');
+          "
+
+          # Create XPI (ZIP with .xpi extension)
+          cd /tmp/firefox-build
+          zip -r "${GITHUB_WORKSPACE}/dist/komikhq-clipper-${TAG_NAME}-firefox.xpi" .
+          echo "✅ Firefox XPI built"
+          ls -lh ${GITHUB_WORKSPACE}/dist/
+
+      - name: Generate AI Release Notes via Gemini API
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_REF_NAME: ${{ github.ref_name }}
+        run: node .github/scripts/generate_release_notes.js
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release_notes.md
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          files: |
+            dist/komikhq-clipper-${{ env.TAG_NAME }}-chromium.zip
+            dist/komikhq-clipper-${{ env.TAG_NAME }}.crx
+            dist/komikhq-clipper-${{ env.TAG_NAME }}-firefox.xpi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KomikHQ Clipper</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="brand">
+        <img src="../assets/icon-48.png" alt="Logo" class="logo">
+        <div class="title-group">
+          <h1>KomikHQ <span class="badge">Clipper</span></h1>
+          <span class="subtitle">Chapter Image Fetcher</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="app-content">
+      <!-- Loading State -->
+      <div id="state-loading" class="state-view">
+        <div class="spinner"></div>
+        <p>Memindai halaman...</p>
+      </div>
+
+      <!-- Unsupported / Non-Reader State -->
+      <div id="state-unsupported" class="state-view hidden">
+        <div class="icon-warning">⚠️</div>
+        <h3>Bukan Halaman Baca</h3>
+        <p id="unsupported-msg">Silakan buka halaman baca chapter komik di situs yang didukung (misal: <code>komiku.org</code>).</p>
+      </div>
+
+      <!-- Scanned / Ready State -->
+      <div id="state-ready" class="state-view hidden">
+        <div class="info-card">
+          <div class="card-header">
+            <span id="site-badge" class="site-tag">komiku.org</span>
+            <span id="chapter-badge" class="chapter-tag">Ch. 000</span>
+          </div>
+          <h2 id="comic-title" class="comic-title">Judul Komik</h2>
+          <div class="stats-row">
+            <div class="stat-item">
+              <span class="stat-value" id="img-count">0</span>
+              <span class="stat-label">Gambar Chapter</span>
+            </div>
+            <div class="stat-item">
+              <span class="stat-value" id="file-format">ZIP</span>
+              <span class="stat-label">Format Output</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Download Action -->
+        <button id="btn-download" class="btn btn-primary">
+          <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          Unduh Chapter (.zip)
+        </button>
+
+        <!-- Download Progress -->
+        <div id="progress-container" class="progress-box hidden">
+          <div class="progress-info">
+            <span id="progress-status" class="progress-text">Mengunduh gambar...</span>
+            <span id="progress-percent" class="progress-num">0%</span>
+          </div>
+          <div class="progress-track">
+            <div id="progress-bar" class="progress-fill" style="width: 0%;"></div>
+          </div>
+          <div id="progress-detail" class="progress-detail">0 / 0 file</div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+      <span>KomikHQ v1.0.0</span>
+    </footer>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
