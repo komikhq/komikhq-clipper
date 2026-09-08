@@ -1,25 +1,26 @@
-# Build artifacts
-dist/
-build/
-*.crx
-*.xpi
-*.zip
-release_notes.md
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
 
-# Keys & secrets (any .pem in any subfolder)
-**/*.pem
-*.pem
-keys/
-.env
+node_modules
+.output
+stats.html
+stats-*.json
+.wxt
+web-ext.config.ts
 
-# OS
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
 .DS_Store
-Thumbs.db
-
-# IDE
-.idea/
-.vscode/
-*.swp
-
-# Node (build scripts)
-node_modules/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
