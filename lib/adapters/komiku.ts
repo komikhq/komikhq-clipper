@@ -68,7 +68,7 @@ export class KomikuAdapter extends BaseAdapter {
     const container = document.getElementById('Baca_Komik');
     if (!container) return [];
 
-    const allImgs = container.querySelectorAll('img');
+    const allImgs = Array.from(container.querySelectorAll('img'));
     const urls: string[] = [];
 
     for (const img of allImgs) {
