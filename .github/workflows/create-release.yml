@@ -86,6 +86,23 @@ jobs:
           echo "✅ CRX3 built with consistent Extension ID"
           ls -lh dist/
 
+      - name: Skip Edge submission if EDGE_PRODUCT_ID is missing
+        if: ${{ secrets.EDGE_PRODUCT_ID == '' }}
+        run: |
+          echo "Skipping Edge submission because EDGE_PRODUCT_ID is not configured yet."
+
+      - name: Submit Extension to Microsoft Edge Add-ons Store
+        if: ${{ secrets.EDGE_PRODUCT_ID != '' }}
+        continue-on-error: true
+        env:
+          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
+          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+        run: |
+          pnpm wxt submit \
+            -b edge \
+            --zip "dist/komikhq-clipper-${TAG_NAME}-chrome.zip"
+
       - name: Skip AMO signing until AMO add-on exists
         if: ${{ vars.AMO_ADDON_ID == '' }}
         run: |
