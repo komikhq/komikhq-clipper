@@ -120,20 +120,14 @@ async function downloadChapterAsZip(
   const dataUrl = await zip.generateAsync({ type: 'base64' });
   const zipFileName = `${chapterInfo.slug}.zip`;
 
-  const downloadId = await browser.downloads.download({
-    url: `data:application/zip;base64,${dataUrl}`,
-    filename: zipFileName,
-    saveAs: false,
-  });
-
   await browser.action.setBadgeText({ text: '✓', tabId });
   await browser.action.setBadgeBackgroundColor({ color: '#10b981', tabId });
 
-  logger.info('ZIP generated and download triggered:', { downloadId, zipFileName, downloaded, total, errorsCount: errors.length });
+  logger.info('ZIP generated successfully:', { zipFileName, downloaded, total, errorsCount: errors.length });
 
   browser.alarms.create('clearBadge', { delayInMinutes: 0.05 });
 
-  return { ok: true, downloadId, zipFileName, downloaded, total, errors };
+  return { ok: true, zipFileName, zipBase64: dataUrl, downloaded, total, errors };
 }
 
 export default defineBackground(() => {

@@ -1,5 +1,5 @@
 /**
- * BaseAdapter — Interface untuk semua adapter situs komik.
+ * BaseAdapter — Abstract base class for comic site parsers.
  */
 export interface ChapterInfo {
   title: string;
@@ -8,25 +8,40 @@ export interface ChapterInfo {
 }
 
 export abstract class BaseAdapter {
-  /** URL patterns yang didukung adapter ini */
+  /** Supported URL patterns for this adapter */
   abstract readonly patterns: RegExp[];
 
-  /** Cek apakah adapter cocok untuk URL ini */
+  /** Check if adapter matches the given URL */
   matches(url: string): boolean {
     return this.patterns.some((p) => p.test(url));
   }
 
-  /** Cek apakah halaman saat ini adalah halaman baca chapter */
+  /** Check if the current page is a reader/chapter page */
   abstract isReaderPage(): boolean;
 
-  /** Ambil metadata chapter */
+  /** Extract chapter metadata */
   abstract getChapterInfo(): ChapterInfo;
 
-  /** Ambil daftar URL gambar chapter secara berurutan */
+  /** Extract image URLs sequentially */
   abstract getImageUrls(): string[];
 
-  /** Referer header untuk fetch gambar (anti-hotlinking) */
+  /** Referer header for fetching chapter images */
   getReferer(): string {
     return window.location.origin + '/';
   }
+
+  /** Sanitizes title and chapter into a filesystem-safe ZIP slug */
+  protected buildSafeSlug(title: string, chapter: string): string {
+    const safeTitle = (title || 'Comic').trim();
+    const safeChapter = (chapter || '000').trim();
+
+    const slug = `${safeTitle}-Chapter-${safeChapter}`
+      .replace(/[^a-zA-Z0-9\-_.]/g, '-')
+      .replace(/-{2,}/g, '-')
+      .replace(/^-|-$/g, '');
+
+    return slug || 'komikhq-chapter';
+  }
 }
+
+

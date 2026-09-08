@@ -1,5 +1,7 @@
 import { BaseAdapter, type ChapterInfo } from './base-adapter';
 
+
+
 /**
  * KiryuuAdapter — Parser untuk kiryuu.id / kiryuu.org
  *
@@ -50,10 +52,7 @@ export class KiryuuAdapter extends BaseAdapter {
       if (breadcrumb) title = breadcrumb.textContent?.trim() || title;
     }
 
-    const slug = `${title}-Chapter-${chapter}`
-      .replace(/[^a-zA-Z0-9\-_.]/g, '-')
-      .replace(/-{2,}/g, '-')
-      .replace(/^-|-$/g, '');
+    const slug = this.buildSafeSlug(title, chapter);
 
     return { title, chapter, slug };
   }

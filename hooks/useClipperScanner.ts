@@ -127,6 +127,29 @@ export function useClipperScanner() {
 
       if (result?.ok) {
         logger.info('Download completed successfully:', result.zipFileName);
+        if (result.zipBase64) {
+          try {
+            const binaryString = atob(result.zipBase64);
+            const bytes = new Uint8Array(binaryString.length);
+            for (let i = 0; i < binaryString.length; i++) {
+              bytes[i] = binaryString.charCodeAt(i);
+            }
+            const blob = new Blob([bytes], { type: 'application/zip' });
+            const blobUrl = URL.createObjectURL(blob);
+            const anchor = document.createElement('a');
+            anchor.href = blobUrl;
+            anchor.download = result.zipFileName || 'chapter.zip';
+            anchor.style.display = 'none';
+            document.body.appendChild(anchor);
+            anchor.click();
+            setTimeout(() => {
+              anchor.remove();
+              URL.revokeObjectURL(blobUrl);
+            }, 1000);
+          } catch (e: any) {
+            logger.error('Failed to trigger Blob URL download:', e);
+          }
+        }
         setProgress((p) => ({ ...p, percent: 100, currentFile: result.zipFileName }));
         setView('done');
       } else {

@@ -1,5 +1,7 @@
 import { BaseAdapter, type ChapterInfo } from './base-adapter';
 
+
+
 /**
  * KomikcastAdapter — Parser untuk komikcast.cz / komikcast.lol
  *
@@ -48,10 +50,7 @@ export class KomikcastAdapter extends BaseAdapter {
       if (breadcrumb) title = breadcrumb.textContent?.trim() || title;
     }
 
-    const slug = `${title}-Chapter-${chapter}`
-      .replace(/[^a-zA-Z0-9\-_.]/g, '-')
-      .replace(/-{2,}/g, '-')
-      .replace(/^-|-$/g, '');
+    const slug = this.buildSafeSlug(title, chapter);
 
     return { title, chapter, slug };
   }

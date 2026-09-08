@@ -1,5 +1,7 @@
 import { BaseAdapter, type ChapterInfo } from './base-adapter';
 
+
+
 /**
  * KomikuAdapter — Parser untuk komiku.org / komiku.id
  *
@@ -56,10 +58,7 @@ export class KomikuAdapter extends BaseAdapter {
       }
     }
 
-    const slug = `${title}-Chapter-${chapter}`
-      .replace(/[^a-zA-Z0-9\-_.]/g, '-')
-      .replace(/-{2,}/g, '-')
-      .replace(/^-|-$/g, '');
+    const slug = this.buildSafeSlug(title, chapter);
 
     return { title, chapter, slug };
   }
