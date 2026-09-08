@@ -151,9 +151,10 @@ function generateArtifactTable(githubRepository, releaseVersion) {
 
 | Platform | File | Install Method |
 | --- | --- | --- |
-| Chromium (Chrome/Edge/Brave) | [\`komikhq-clipper-${releaseVersion}-chromium.zip\`](https://github.com/${githubRepository}/releases/download/${releaseVersion}/komikhq-clipper-${releaseVersion}-chromium.zip) | Load unpacked / Edge Add-ons Store |
+| Chromium (Chrome/Edge/Brave) | [\`komikhq-clipper-${releaseVersion}-chrome.zip\`](https://github.com/${githubRepository}/releases/download/${releaseVersion}/komikhq-clipper-${releaseVersion}-chrome.zip) | Load unpacked / Edge Add-ons Store |
 | Chromium (CRX3 Self-Signed) | [\`komikhq-clipper-${releaseVersion}.crx\`](https://github.com/${githubRepository}/releases/download/${releaseVersion}/komikhq-clipper-${releaseVersion}.crx) | Drag to \`chrome://extensions\` |
-| Firefox | [\`komikhq-clipper-${releaseVersion}-firefox.xpi\`](https://github.com/${githubRepository}/releases/download/${releaseVersion}/komikhq-clipper-${releaseVersion}-firefox.xpi) | \`about:addons\` / AMO |
+| Firefox | [\`komikhq-clipper-${releaseVersion}-firefox.zip\`](https://github.com/${githubRepository}/releases/download/${releaseVersion}/komikhq-clipper-${releaseVersion}-firefox.zip) | \`about:addons\` / AMO |
+| Source Code (Firefox/AMO Compliance) | [\`komikhq-clipper-${releaseVersion}-sources.zip\`](https://github.com/${githubRepository}/releases/download/${releaseVersion}/komikhq-clipper-${releaseVersion}-sources.zip) | Source zip for submission verification |
 `;
 }
 

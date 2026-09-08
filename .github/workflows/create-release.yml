@@ -20,10 +20,19 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Extract Version from Tag
         run: |
@@ -32,28 +41,31 @@ jobs:
           echo "TAG_NAME=$GITHUB_REF_NAME" >> $GITHUB_ENV
           echo "Building version: $VERSION"
 
-      - name: Patch manifest.json Version
+      - name: Patch package.json Version
         run: |
           node -e "
             const fs = require('fs');
-            const manifest = JSON.parse(fs.readFileSync('manifest.json', 'utf8'));
-            manifest.version = process.env.VERSION;
-            fs.writeFileSync('manifest.json', JSON.stringify(manifest, null, 2) + '\n');
-            console.log('Patched manifest.json to version:', manifest.version);
+            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+            pkg.version = process.env.VERSION;
+            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
+            console.log('Patched package.json version to:', pkg.version);
           "
+          pnpm wxt prepare
 
-      - name: Build Chromium Extension (ZIP)
+      - name: Build Extension Packs (WXT)
         run: |
           mkdir -p dist
-          zip -r "dist/komikhq-clipper-${TAG_NAME}-chromium.zip" \
-            manifest.json \
-            assets/ \
-            lib/ \
-            popup/ \
-            service-worker/ \
-            content-scripts/ \
-            -x "*.pem" "*.md" ".git/*" ".github/*" "dist/*" "node_modules/*" "scripts/*" "keys/*"
-          echo "✅ Chromium ZIP built"
+
+          # Build Chrome & Firefox extension zips using WXT
+          pnpm run zip
+          pnpm run zip:firefox
+
+          # Copy WXT zip outputs into dist/
+          cp .output/komikhq-clipper-${VERSION}-chrome.zip "dist/komikhq-clipper-${TAG_NAME}-chrome.zip"
+          cp .output/komikhq-clipper-${VERSION}-firefox.zip "dist/komikhq-clipper-${TAG_NAME}-firefox.zip"
+          cp .output/komikhq-clipper-${VERSION}-sources.zip "dist/komikhq-clipper-${TAG_NAME}-sources.zip"
+
+          echo "✅ Extension zips built"
           ls -lh dist/
 
       - name: Build Chromium Extension (CRX3 Self-Signed)
@@ -64,59 +76,15 @@ jobs:
           # Install crx3 CLI
           npm install -g crx3
 
-          # Create a clean build directory (crx3 packs entire directory)
-          mkdir -p /tmp/crx-build
-          cp -r manifest.json assets/ lib/ popup/ service-worker/ content-scripts/ /tmp/crx-build/
-
-          # Pack CRX3 with the private key
-          crx3 pack /tmp/crx-build \
+          # Pack CRX3 directly from WXT Chrome build directory
+          crx3 pack .output/chrome-mv3 \
             -p /tmp/extension.pem \
             -o "dist/komikhq-clipper-${TAG_NAME}.crx"
 
           # Cleanup
           rm -f /tmp/extension.pem
-          rm -rf /tmp/crx-build
           echo "✅ CRX3 built with consistent Extension ID"
           ls -lh dist/
-
-      - name: Build Firefox Extension (XPI)
-        run: |
-          # Create a temporary directory for Firefox build
-          mkdir -p /tmp/firefox-build
-          cp -r manifest.json assets/ lib/ popup/ service-worker/ content-scripts/ /tmp/firefox-build/
-
-          # Patch manifest for Firefox compatibility
-          node -e "
-            const fs = require('fs');
-            const manifest = JSON.parse(fs.readFileSync('/tmp/firefox-build/manifest.json', 'utf8'));
-
-            // Add Firefox-specific settings
-            manifest.browser_specific_settings = {
-              gecko: {
-                id: 'clipper@komikhq.org',
-                strict_min_version: '109.0',
-                data_collection_permissions: {
-                  required: ['none']
-                }
-              }
-            };
-
-            // Firefox MV3 uses 'background.scripts' instead of 'service_worker'
-            if (manifest.background && manifest.background.service_worker) {
-              manifest.background = {
-                scripts: [manifest.background.service_worker]
-              };
-            }
-
-            fs.writeFileSync('/tmp/firefox-build/manifest.json', JSON.stringify(manifest, null, 2) + '\n');
-            console.log('Patched manifest for Firefox');
-          "
-
-          # Create XPI (ZIP with .xpi extension)
-          cd /tmp/firefox-build
-          zip -r "${GITHUB_WORKSPACE}/dist/komikhq-clipper-${TAG_NAME}-firefox.xpi" .
-          echo "✅ Firefox XPI built"
-          ls -lh ${GITHUB_WORKSPACE}/dist/
 
       - name: Skip AMO signing until AMO add-on exists
         if: ${{ vars.AMO_ADDON_ID == '' }}
@@ -124,7 +92,7 @@ jobs:
           echo "Skipping AMO signing because AMO_ADDON_ID is not configured yet."
           echo "Create the add-on in AMO Developer Hub first, then set the variable and rerun the workflow."
 
-      - name: Upload Firefox XPI to AMO for signing
+      - name: Upload Firefox ZIP to AMO for signing
         if: ${{ vars.AMO_ADDON_ID != '' }}
         continue-on-error: true
         env:
@@ -134,9 +102,9 @@ jobs:
           AMO_API_BASE: https://addons.mozilla.org/api/v5
         run: |
           set -euo pipefail
-          FILE="dist/komikhq-clipper-${TAG_NAME}-firefox.xpi"
+          FILE="dist/komikhq-clipper-${TAG_NAME}-firefox.zip"
           if [ ! -f "$FILE" ]; then
-            echo "Missing Firefox XPI: $FILE"
+            echo "Missing Firefox ZIP: $FILE"
             exit 1
           fi
 
@@ -159,7 +127,7 @@ jobs:
           NODE
 
           JWT=$(cat /tmp/amo_jwt.txt)
-          echo "Uploading Firefox XPI to AMO..."
+          echo "Uploading Firefox ZIP to AMO..."
           curl -sS -D /tmp/amo_upload_headers.txt \
             -H "Authorization: JWT ${JWT}" \
             -F "upload=@${FILE}" \
@@ -216,9 +184,11 @@ jobs:
           if-no-files-found: ignore
           prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
           files: |
-            dist/komikhq-clipper-${{ env.TAG_NAME }}-chromium.zip
+            dist/komikhq-clipper-${{ env.TAG_NAME }}-chrome.zip
             dist/komikhq-clipper-${{ env.TAG_NAME }}.crx
-            dist/komikhq-clipper-${{ env.TAG_NAME }}-firefox.xpi
+            dist/komikhq-clipper-${{ env.TAG_NAME }}-firefox.zip
+            dist/komikhq-clipper-${{ env.TAG_NAME }}-sources.zip
             dist/komikhq-clipper-${{ env.TAG_NAME }}-firefox-signed.xpi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
