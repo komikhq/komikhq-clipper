@@ -1,6 +1,7 @@
 import { defineConfig } from 'wxt';
 import tailwindcss from '@tailwindcss/vite';
 import path from 'node:path';
+import packageJson from './package.json';
 
 export default defineConfig({
   modules: ['@wxt-dev/module-react'],
@@ -14,7 +15,7 @@ export default defineConfig({
   }),
   manifest: ({ browser }) => ({
     name: 'KomikHQ Clipper',
-    version: '2.0.0',
+    version: packageJson.version,
     description: 'Scan & download chapter comic images as a sequentially-named ZIP file for KomikHQ.',
     permissions: ['activeTab', 'scripting', 'downloads', 'alarms'],
     host_permissions: [

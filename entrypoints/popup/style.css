@@ -91,12 +91,28 @@
   }
 }
 
-/* Extension popup specific */
+/* Extension popup specific responsive layout */
+html, body {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 body {
+  min-width: 320px;
+  max-width: 400px;
   width: 360px;
   min-height: 200px;
   overflow-x: hidden;
+  margin: 0 auto;
 }
+
+@media (max-width: 400px) {
+  body {
+    width: 100vw;
+  }
+}
+
 
 :root {
   --background: oklch(1 0 0);
