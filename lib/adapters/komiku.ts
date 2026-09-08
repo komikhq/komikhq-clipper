@@ -13,7 +13,7 @@ export class KomikuAdapter extends BaseAdapter {
 
   private static PROMO_PATTERNS = [
     'komiku-promosi',
-    'ads',
+    // 'ads',
     '/asset/',
     'komikuplus',
     'gstatic.com',
