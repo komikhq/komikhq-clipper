@@ -54,6 +54,7 @@
 - [Overview](#overview)
 - [Features](#features)
 - [Supported Sites](#supported-sites)
+- [Installation](#installation)
 - [Getting Started](#getting-started)
 - [Architecture](#architecture)
 - [Contributing](#contributing)
@@ -91,6 +92,28 @@ Built with [WXT](https://wxt.dev/), React 19, and TypeScript, the extension targ
 | Komikcast | `komikcast.cz` / `komikcast.lol` | [`komikcast.ts`](lib/adapters/komikcast.ts) |
 
 > Adding a new site? See the [Contributing Guide](CONTRIBUTING.md#adding-a-new-site-adapter).
+
+---
+
+## Installation
+
+### Browser Extension Stores
+
+| Store | Link |
+|:---|:---|
+| Microsoft Edge Add-ons | [Install for Edge](https://microsoftedge.microsoft.com/addons/detail/majmeimedakmbcfdcebjkbnmbjmdiggc) |
+| Firefox Add-ons | [Install for Firefox](https://addons.mozilla.org/en-US/firefox/addon/komikhq-clipper/) |
+
+### Manual Installation via GitHub Releases
+
+Pre-built extension packages are attached to every [GitHub Release](https://github.com/komikhq/komikhq-clipper/releases/latest). Download the artifact that matches your browser:
+
+| Artifact | Browser | Instructions |
+|:---|:---|:---|
+| `komikhq-clipper-vX.X.X-chrome.zip` | Chrome, Edge, Brave, Vivaldi, Opera | Unzip, then load via `chrome://extensions` with **Developer mode** enabled |
+| `komikhq-clipper-vX.X.X.crx` | Chrome, Edge, Brave, Vivaldi, Opera | Drag-and-drop the `.crx` file onto `chrome://extensions` |
+| `komikhq-clipper-vX.X.X-firefox.zip` | Firefox | Load as a temporary add-on via `about:debugging#/runtime/this-firefox` |
+| `komikhq-clipper-vX.X.X-firefox-signed.xpi` | Firefox | Open the file directly in Firefox to install permanently |
 
 ---
 
