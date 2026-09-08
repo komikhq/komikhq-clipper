@@ -1,4 +1,7 @@
 import { getAdapter } from '@/lib/adapters/registry';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('Content');
 
 export default defineContentScript({
   matches: [
@@ -13,6 +16,7 @@ export default defineContentScript({
   main() {
     browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       const { action } = message;
+      logger.debug('Message received from popup:', action);
 
       if (action === 'ping') {
         const adapter = getAdapter(window.location.href);
@@ -29,6 +33,7 @@ export default defineContentScript({
         const adapter = getAdapter(window.location.href);
 
         if (!adapter) {
+          logger.warn('No matching adapter found for URL:', window.location.href);
           sendResponse({
             ok: false,
             error: 'Tidak ada adapter yang cocok untuk situs ini.',
@@ -37,6 +42,7 @@ export default defineContentScript({
         }
 
         if (!adapter.isReaderPage()) {
+          logger.warn('Page is not a comic reader page:', window.location.href);
           sendResponse({
             ok: false,
             error: 'Halaman ini bukan halaman baca chapter. Buka halaman baca komik terlebih dahulu.',
@@ -48,6 +54,8 @@ export default defineContentScript({
         const imageUrls = adapter.getImageUrls();
         const referer = adapter.getReferer();
 
+        logger.info('Scan successful:', { chapter: chapterInfo.chapter, imageCount: imageUrls.length });
+
         sendResponse({
           ok: true,
           chapterInfo,
@@ -58,11 +66,13 @@ export default defineContentScript({
         return false;
       }
 
+      logger.warn('Unknown message action:', action);
       sendResponse({ ok: false, error: `Aksi tidak dikenal: ${action}` });
       return false;
     });
 
     const adapter = getAdapter(window.location.href);
-    console.log('[KomikHQ Clipper] Content script loaded. Adapter:', adapter?.constructor?.name || 'none');
+    logger.info('Content script loaded. Adapter:', adapter?.constructor?.name || 'none');
   },
 });
+

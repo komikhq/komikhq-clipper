@@ -1,5 +1,7 @@
 import JSZip from 'jszip';
+import { createLogger } from '@/lib/logger';
 
+const logger = createLogger('Background');
 const FETCH_TIMEOUT_MS = 30000;
 
 function formatFileName(index: number, total: number, ext: string): string {
@@ -48,6 +50,8 @@ async function downloadChapterAsZip(
   let downloaded = 0;
   const errors: { index: number; url: string; error: string }[] = [];
 
+  logger.info('Starting chapter download:', { title: chapterInfo.title, chapter: chapterInfo.chapter, totalImages: total });
+
   await browser.action.setBadgeText({ text: '0%', tabId });
   await browser.action.setBadgeBackgroundColor({ color: '#3b82f6', tabId });
 
@@ -85,6 +89,7 @@ async function downloadChapterAsZip(
 
       const percent = Math.round((downloaded / total) * 100);
       await browser.action.setBadgeText({ text: `${percent}%`, tabId });
+      logger.debug(`Downloaded image ${i + 1}/${total}: ${fileName}`);
 
       try {
         await browser.runtime.sendMessage({
@@ -99,6 +104,7 @@ async function downloadChapterAsZip(
       const errorMessage = err.name === 'AbortError'
         ? `Timeout setelah ${FETCH_TIMEOUT_MS / 1000} detik`
         : err.message;
+      logger.warn(`Failed to download image ${i + 1}/${total}:`, { url, error: errorMessage });
       errors.push({ index: i, url, error: errorMessage });
     }
   }
@@ -106,6 +112,7 @@ async function downloadChapterAsZip(
   if (downloaded === 0) {
     await browser.action.setBadgeText({ text: 'ERR', tabId });
     await browser.action.setBadgeBackgroundColor({ color: '#ef4444', tabId });
+    logger.error('Download failed: No images were successfully downloaded.');
     throw new Error('Tidak ada gambar yang berhasil diunduh.');
   }
 
@@ -122,6 +129,8 @@ async function downloadChapterAsZip(
   await browser.action.setBadgeText({ text: '✓', tabId });
   await browser.action.setBadgeBackgroundColor({ color: '#10b981', tabId });
 
+  logger.info('ZIP generated and download triggered:', { downloadId, zipFileName, downloaded, total, errorsCount: errors.length });
+
   browser.alarms.create('clearBadge', { delayInMinutes: 0.05 });
 
   return { ok: true, downloadId, zipFileName, downloaded, total, errors };
@@ -129,20 +138,34 @@ async function downloadChapterAsZip(
 
 export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: DownloadRequest, _sender, sendResponse) => {
+    logger.debug('Received runtime message:', message.action);
     if (message.action === 'downloadZip') {
       const { imageUrls, chapterInfo, tabId, referer } = message;
       downloadChapterAsZip(imageUrls, chapterInfo, tabId, referer)
         .then((result) => sendResponse(result))
-        .catch((err) => sendResponse({ ok: false, error: err.message }));
+        .catch((err) => {
+          logger.error('Error handling downloadZip message:', err);
+          sendResponse({ ok: false, error: err.message });
+        });
       return true; // keep channel open for async
     }
   });
 
   browser.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === 'clearBadge') {
+      logger.debug('Clearing badge text');
       await browser.action.setBadgeText({ text: '' });
     }
   });
 
-  console.log('[KomikHQ Clipper] Background loaded.', { id: browser.runtime.id });
+  self.addEventListener('unhandledrejection', (event: any) => {
+    logger.error('Unhandled Promise Rejection:', event.reason);
+  });
+
+  self.addEventListener('error', (event: any) => {
+    logger.error('Uncaught Error:', event.error || event.message);
+  });
+
+  logger.info('Background loaded.', { id: browser.runtime.id });
 });
+

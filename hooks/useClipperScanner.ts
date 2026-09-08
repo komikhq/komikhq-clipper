@@ -1,4 +1,7 @@
 import { useEffect, useState } from 'react';
+import { createLogger } from '@/lib/logger';
+
+const logger = createLogger('Popup');
 
 export type ViewState = 'loading' | 'unsupported' | 'ready' | 'downloading' | 'done';
 
@@ -38,9 +41,11 @@ export function useClipperScanner() {
   const [tabId, setTabId] = useState<number | null>(null);
 
   useEffect(() => {
+    logger.info('Initializing popup scanner hook...');
     initPopup();
     const listener = (message: any) => {
       if (message.action === 'downloadProgress') {
+        logger.debug('Download progress update:', message);
         setProgress({
           downloaded: message.downloaded,
           total: message.total,
@@ -57,18 +62,22 @@ export function useClipperScanner() {
     try {
       const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
       if (!tab?.id || !tab.url) {
+        logger.warn('No active tab found or missing tab URL');
         setErrorMsg('Tidak dapat mengakses tab aktif.');
         setView('unsupported');
         return;
       }
 
       setTabId(tab.id);
-      setHost(new URL(tab.url).hostname.replace('www.', ''));
+      const parsedHost = new URL(tab.url).hostname.replace('www.', '');
+      setHost(parsedHost);
+      logger.debug('Active tab identified:', { tabId: tab.id, host: parsedHost, url: tab.url });
 
       let response: ScanResult | null = null;
       try {
         response = await browser.tabs.sendMessage(tab.id, { action: 'scan' });
-      } catch {
+      } catch (err: any) {
+        logger.debug('Initial scan message failed, attempting content script injection...', err.message);
         // Content script belum aktif, inject dulu
         try {
           await browser.scripting.executeScript({
@@ -76,12 +85,13 @@ export function useClipperScanner() {
             files: ['/content-scripts/content.js'],
           });
           response = await browser.tabs.sendMessage(tab.id, { action: 'scan' });
-        } catch {
-          // ignore
+        } catch (injectErr: any) {
+          logger.warn('Content script injection failed:', injectErr.message);
         }
       }
 
       if (!response?.ok) {
+        logger.warn('Scan response not OK:', response?.error);
         setErrorMsg(
           response?.error ||
             'Pastikan Anda berada di halaman baca komik (misal: komiku.org).',
@@ -90,9 +100,11 @@ export function useClipperScanner() {
         return;
       }
 
+      logger.info('Scan successful in popup:', { chapter: response.chapterInfo.chapter, count: response.imageCount });
       setScanData(response);
       setView('ready');
     } catch (err: any) {
+      logger.error('Error in initPopup:', err);
       setErrorMsg(err.message || 'Terjadi kesalahan.');
       setView('unsupported');
     }
@@ -100,6 +112,7 @@ export function useClipperScanner() {
 
   async function handleDownload() {
     if (!scanData || tabId === null) return;
+    logger.info('User initiated download:', { chapter: scanData.chapterInfo.slug, total: scanData.imageUrls.length });
     setView('downloading');
     setProgress({ downloaded: 0, total: scanData.imageUrls.length, percent: 0, currentFile: 'Menyiapkan...' });
 
@@ -113,13 +126,16 @@ export function useClipperScanner() {
       });
 
       if (result?.ok) {
+        logger.info('Download completed successfully:', result.zipFileName);
         setProgress((p) => ({ ...p, percent: 100, currentFile: result.zipFileName }));
         setView('done');
       } else {
+        logger.error('Background download failed:', result?.error);
         setErrorMsg(result?.error || 'Gagal mengunduh.');
         setView('unsupported');
       }
     } catch (err: any) {
+      logger.error('Error sending download message to background:', err);
       setErrorMsg(err.message || 'Gagal mengunduh.');
       setView('unsupported');
     }
@@ -136,3 +152,4 @@ export function useClipperScanner() {
     retryScan: initPopup,
   };
 }
+
