@@ -60,7 +60,7 @@ jobs:
         env:
           EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
           EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
-          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
+          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY || secrets.EDGE_APT_KEY }}
         run: |
           VERSION="${RELEASE_TAG#v}"
           pnpm tsx .github/scripts/publish-store/src/index.ts \
@@ -106,8 +106,8 @@ jobs:
       - name: Publish to Firefox
         env:
           AMO_EXTENSION_ID: ${{ secrets.AMO_EXTENSION_ID }}
-          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
-          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
+          AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER || secrets.MOZILLA_JWT_ISSUER }}
+          AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET || secrets.MOZILLA_JWT_SECRET }}
         run: |
           VERSION="${RELEASE_TAG#v}"
           pnpm tsx .github/scripts/publish-store/src/index.ts \

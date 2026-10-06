@@ -32,7 +32,7 @@ export default defineConfig({
     ...(browser === 'firefox' && {
       browser_specific_settings: {
         gecko: {
-          id: 'clipper@komikhq.com',
+          id: 'clipper@komikhq.org',
           strict_min_version: '109.0',
           data_collection_permissions: {
             required: ['none'],

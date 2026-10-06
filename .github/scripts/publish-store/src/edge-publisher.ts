@@ -74,15 +74,19 @@ export class EdgeStorePublisher extends BaseStorePublisher {
     return 'ok';
   }
 
-  private async pollOperationStatus(operationUrl: string): Promise<void> {
+  private async pollOperationStatus(operationIdOrUrl: string): Promise<void> {
     const maxAttempts = 15;
     const delayMs = 5000;
+
+    const pollUrl = operationIdOrUrl.startsWith('http')
+      ? operationIdOrUrl
+      : `https://api.addons.microsoftedge.microsoft.com/v1/products/${this.credentials.productId}/submissions/draft/package/operations/${operationIdOrUrl}`;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
       this.log(`Polling upload status (attempt ${attempt}/${maxAttempts})...`);
       await new Promise((resolve) => setTimeout(resolve, delayMs));
 
-      const response = await fetch(operationUrl, {
+      const response = await fetch(pollUrl, {
         headers: this.authHeaders,
       });
 
