@@ -31,3 +31,5 @@ playwright/
 playwright-report/
 test-results/
 
+# Made by release generator scripts.
+release_notes.md

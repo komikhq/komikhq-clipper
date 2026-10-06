@@ -11,7 +11,7 @@ interface StatusMessageCardProps {
 export function StatusMessageCard({ type, message, onRetry }: StatusMessageCardProps) {
   if (type === 'loading') {
     return (
-      <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
+      <div className="flex flex-col items-center justify-center gap-3 py-8 text-center flex-1 my-auto">
         <CircleNotch weight="fill" className="w-7 h-7 animate-spin text-primary" />
         <p className="text-sm font-medium text-muted-foreground">Scanning comic pages...</p>
       </div>
@@ -19,7 +19,7 @@ export function StatusMessageCard({ type, message, onRetry }: StatusMessageCardP
   }
 
   return (
-    <div className="flex flex-col items-center justify-center gap-3 py-6 text-center">
+    <div className="flex flex-col items-center justify-center gap-3 py-6 text-center flex-1 my-auto">
       <div className="p-2.5 rounded-full bg-amber-500/10 text-amber-500">
         <Warning weight="fill" className="w-7 h-7" />
       </div>
@@ -34,7 +34,7 @@ export function StatusMessageCard({ type, message, onRetry }: StatusMessageCardP
           variant="outline"
           size="sm"
           onClick={onRetry}
-          className="mt-1 gap-1.5 text-xs font-medium border-border"
+          className="mt-1 gap-1.5 text-xs font-medium border-border min-h-[44px]"
         >
           <ArrowClockwise weight="bold" className="w-3.5 h-3.5" />
           Try Scanning Again

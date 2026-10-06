@@ -23,7 +23,7 @@ function ClipperContent() {
   } = useClipperScanner();
 
   return (
-    <div className="flex flex-col gap-3.5 p-4 min-h-[300px] bg-background text-foreground transition-colors duration-200">
+    <div className="flex flex-col gap-3.5 p-4 flex-1 min-h-0 bg-background text-foreground transition-colors duration-200">
       <Header />
 
       {/* Loading state */}
@@ -52,7 +52,7 @@ function ClipperContent() {
           {view === 'ready' && (
             <Button
               onClick={handleDownload}
-              className="w-full gap-2 font-semibold shadow-sm transition-all duration-150 hover:scale-[1.01] active:scale-[0.99]"
+              className="w-full gap-2 font-semibold shadow-sm min-h-[44px] transition-all duration-150 hover:scale-[1.01] active:scale-[0.99]"
             >
               <DownloadSimple weight="fill" className="w-4 h-4" />
               Unduh Chapter (.zip)
