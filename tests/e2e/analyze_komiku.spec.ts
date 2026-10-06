@@ -1,33 +1,27 @@
 import { test } from '@playwright/test';
 
+// Direct mappings or search parameters
 const TITLES_TO_TEST = [
-  'One Piece',
-  'Naruto',
-  'Boruto',
-  'Boruto Two Blue Vortex',
-  'Solo Leveling',
-  'Full-Time Awakening'
+  { name: 'One Piece', search: 'One Piece' },
+  { name: 'Naruto', search: 'Naruto' },
+  { name: 'Boruto', search: 'Boruto' },
+  { name: 'Boruto Two Blue Vortex', search: 'Boruto Two Blue Vortex' },
+  { name: 'Solo Leveling', search: 'Solo Leveling' },
+  { name: 'Full-Time Awakening', search: 'Full-Time Awakening' }
 ];
 
 test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
-  for (const titleQuery of TITLES_TO_TEST) {
+  // Set generous test timeout for processing multiple titles & chapters
+  test.setTimeout(180000);
+
+  for (const item of TITLES_TO_TEST) {
     console.log(`\n==================================================`);
-    console.log(`SEARCHING & ANALYZING TITLE: "${titleQuery}"`);
+    console.log(`ANALYZING TITLE: "${item.name}"`);
     console.log(`==================================================`);
 
-    await page.goto('https://komiku.org/', { waitUntil: 'domcontentloaded' });
-    
-    // Search on website
-    const searchInput = page.locator('input[name="s"], input[type="text"]').first();
-    if (await searchInput.isVisible()) {
-      await searchInput.fill(titleQuery);
-      await searchInput.press('Enter');
-      await page.waitForTimeout(2000);
-    } else {
-      await page.goto(`https://komiku.org/?post_type=manga&s=${encodeURIComponent(titleQuery)}`, { waitUntil: 'domcontentloaded' });
-    }
+    const searchUrl = `https://komiku.org/?post_type=manga&s=${encodeURIComponent(item.search)}`;
+    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    // Find comic link from search results or homepage
     const comicLinks = await page.locator('a[href*="/manga/"]').all();
     let comicUrl = '';
 
@@ -40,12 +34,12 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
     }
 
     if (!comicUrl) {
-      console.log(`❌ No comic page found for title: "${titleQuery}"`);
+      console.log(`❌ No comic page found for title: "${item.name}"`);
       continue;
     }
 
     console.log(`📌 Comic Page URL: ${comicUrl}`);
-    await page.goto(comicUrl, { waitUntil: 'domcontentloaded' });
+    await page.goto(comicUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     const chapterLinks = await page.locator('a[href*="chapter"]').all();
     console.log(`📊 Found ${chapterLinks.length} total chapter links on comic page.`);
@@ -55,11 +49,10 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
       continue;
     }
 
-    // Pick early (last in list/oldest), mid, and late (first in list/newest) chapters
     const indicesToPick = [
-      chapterLinks.length - 1, // Early / Chapter 1
-      Math.floor(chapterLinks.length / 2), // Mid
-      0 // Late / Recent Chapter
+      chapterLinks.length - 1, // AWAL (Oldest / Chapter 1)
+      Math.floor(chapterLinks.length / 2), // PERTENGAHAN (Mid)
+      0 // AKHIR (Newest)
     ];
 
     const targetChapterUrls: { label: string; url: string }[] = [];
@@ -82,9 +75,9 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
       }
     }
 
-    for (const item of targetChapterUrls) {
-      console.log(`\n  📖 Chapter [${item.label}]: ${item.url}`);
-      await page.goto(item.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    for (const ch of targetChapterUrls) {
+      console.log(`\n  📖 Chapter [${ch.label}]: ${ch.url}`);
+      await page.goto(ch.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
       const container = page.locator('#Baca_Komik');
       const containerCount = await container.count();
@@ -95,7 +88,7 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
         console.log(`     Total <img> inside #Baca_Komik: ${imgs.length}`);
 
         let validImgCount = 0;
-        const domainSampleSet = new Set<string>();
+        const pathPatterns = new Set<string>();
 
         for (let i = 0; i < imgs.length; i++) {
           const img = imgs[i];
@@ -111,20 +104,20 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
             validImgCount++;
             try {
               const u = new URL(actualUrl.startsWith('//') ? 'https:' + actualUrl : actualUrl);
-              domainSampleSet.add(u.hostname + u.pathname.substring(0, u.pathname.lastIndexOf('/')));
+              pathPatterns.add(u.hostname + u.pathname.substring(0, u.pathname.lastIndexOf('/')));
             } catch {
               // ignore
             }
           }
 
-          if (i < 3 || i >= imgs.length - 2) {
+          if (i < 2 || i >= imgs.length - 2) {
             console.log(`       - Img #${i + 1}: src="${src}" | data-src="${dataSrc}" | class="${classes}" | alt="${alt}"`);
-          } else if (i === 3) {
-            console.log(`       - ... (${imgs.length - 5} images in between) ...`);
+          } else if (i === 2) {
+            console.log(`       - ... (${imgs.length - 4} images in between) ...`);
           }
         }
-        console.log(`     Summary: ${validImgCount}/${imgs.length} images have valid src attributes.`);
-        console.log(`     Detected Image Path/Domain Patterns:`, Array.from(domainSampleSet));
+        console.log(`     Summary: ${validImgCount}/${imgs.length} images evaluated.`);
+        console.log(`     Detected URL Path Patterns:`, Array.from(pathPatterns));
       } else {
         console.log(`     ⚠️ WARNING: #Baca_Komik container NOT found on this chapter!`);
       }
