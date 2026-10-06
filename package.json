@@ -12,6 +12,7 @@
     "zip": "wxt zip",
     "zip:firefox": "wxt zip -b firefox",
     "compile": "tsc --noEmit",
+    "compile:scripts": "tsc --noEmit -p .github/scripts/publish-store/tsconfig.json",
     "postinstall": "wxt prepare",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui"
@@ -38,6 +39,7 @@
   "devDependencies": {
     "@playwright/test": "^1.63.0",
     "@tailwindcss/vite": "^4.3.3",
+    "@types/node": "^26.6.4",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@wxt-dev/module-react": "^1.1.5",
