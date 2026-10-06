@@ -25,6 +25,33 @@ function getExtension(url: string, contentType: string): string {
   return 'webp';
 }
 
+/**
+ * Convert an image ArrayBuffer to WebP format using native OffscreenCanvas.
+ * Runs entirely inside the Service Worker -- no external dependencies.
+ * Returns the converted ArrayBuffer plus the 'webp' extension string.
+ * Falls back to the original data if conversion fails.
+ */
+async function convertBlobToWebP(
+  buffer: ArrayBuffer,
+  quality = 0.90,
+): Promise<{ data: ArrayBuffer; ext: string; converted: boolean }> {
+  try {
+    const blob = new Blob([buffer]);
+    const bitmap = await createImageBitmap(blob);
+    const canvas = new OffscreenCanvas(bitmap.width, bitmap.height);
+    const ctx = canvas.getContext('2d');
+    if (!ctx) throw new Error('Failed to obtain 2D rendering context');
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close();
+    const webpBlob = await canvas.convertToBlob({ type: 'image/webp', quality });
+    const webpBuffer = await webpBlob.arrayBuffer();
+    return { data: webpBuffer, ext: 'webp', converted: true };
+  } catch (err) {
+    logger.warn('WebP conversion failed, keeping original format:', err);
+    return { data: buffer, ext: '', converted: false };
+  }
+}
+
 interface ChapterInfo {
   title: string;
   chapter: string;
@@ -37,6 +64,7 @@ interface DownloadRequest {
   chapterInfo: ChapterInfo;
   tabId: number;
   referer: string;
+  convertToWebp?: boolean;
 }
 
 async function downloadChapterAsZip(
@@ -44,6 +72,7 @@ async function downloadChapterAsZip(
   chapterInfo: ChapterInfo,
   tabId: number,
   referer: string,
+  convertToWebp = false,
 ) {
   const zip = new JSZip();
   const total = imageUrls.length;
@@ -80,11 +109,21 @@ async function downloadChapterAsZip(
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
       const contentType = response.headers.get('content-type') || '';
-      const ext = getExtension(url, contentType);
-      const blob = await response.arrayBuffer();
-      const fileName = formatFileName(i, total, ext);
+      let ext = getExtension(url, contentType);
+      const rawBuffer = await response.arrayBuffer();
+      let finalBuffer: ArrayBuffer = rawBuffer;
 
-      zip.file(fileName, blob);
+      // Convert to WebP if enabled and not already WebP
+      if (convertToWebp && ext !== 'webp') {
+        const result = await convertBlobToWebP(rawBuffer);
+        if (result.converted) {
+          finalBuffer = result.data;
+          ext = result.ext;
+        }
+      }
+
+      const fileName = formatFileName(i, total, ext);
+      zip.file(fileName, finalBuffer);
       downloaded++;
 
       const percent = Math.round((downloaded / total) * 100);
@@ -134,8 +173,8 @@ export default defineBackground(() => {
   browser.runtime.onMessage.addListener((message: DownloadRequest, _sender, sendResponse) => {
     logger.debug('Received runtime message:', message.action);
     if (message.action === 'downloadZip') {
-      const { imageUrls, chapterInfo, tabId, referer } = message;
-      downloadChapterAsZip(imageUrls, chapterInfo, tabId, referer)
+      const { imageUrls, chapterInfo, tabId, referer, convertToWebp } = message;
+      downloadChapterAsZip(imageUrls, chapterInfo, tabId, referer, convertToWebp)
         .then((result) => sendResponse(result))
         .catch((err) => {
           logger.error('Error handling downloadZip message:', err);

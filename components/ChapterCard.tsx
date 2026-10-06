@@ -1,15 +1,18 @@
 import React from 'react';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Switch } from '@/components/ui/switch';
 import { Images, Archive } from '@phosphor-icons/react';
 import type { ScanResult } from '@/hooks/useClipperScanner';
 
 interface ChapterCardProps {
   scanData: ScanResult;
   host: string;
+  convertToWebp: boolean;
+  onWebpToggleChange: (value: boolean) => void;
 }
 
-export function ChapterCard({ scanData, host }: ChapterCardProps) {
+export function ChapterCard({ scanData, host, convertToWebp, onWebpToggleChange }: ChapterCardProps) {
   return (
     <Card className="border-border bg-card/80 backdrop-blur-sm shadow-sm">
       <CardHeader className="p-3 pb-2">
@@ -37,6 +40,17 @@ export function ChapterCard({ scanData, host }: ChapterCardProps) {
             <span className="text-sm font-bold text-foreground">ZIP</span>
             <span className="text-[10px] text-muted-foreground">Output</span>
           </div>
+        </div>
+        <div className="flex items-center justify-between border-t border-border/60 pt-2 mt-2">
+          <div className="flex flex-col">
+            <span className="text-xs font-medium text-foreground">Convert to WebP</span>
+            <span className="text-[10px] text-muted-foreground">Convert downloaded images to .webp format</span>
+          </div>
+          <Switch
+            checked={convertToWebp}
+            onCheckedChange={onWebpToggleChange}
+            aria-label="Convert to WebP"
+          />
         </div>
       </CardContent>
     </Card>

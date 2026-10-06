@@ -39,10 +39,19 @@ export function useClipperScanner() {
   });
   const [host, setHost] = useState('');
   const [tabId, setTabId] = useState<number | null>(null);
+  const [convertToWebp, setConvertToWebpState] = useState(true);
 
   useEffect(() => {
     logger.info('Initializing popup scanner hook...');
     initPopup();
+
+    // Load persisted WebP preference
+    browser.storage.local.get('convertToWebp').then((result) => {
+      if (typeof result.convertToWebp === 'boolean') {
+        setConvertToWebpState(result.convertToWebp);
+      }
+    });
+
     const listener = (message: any) => {
       if (message.action === 'downloadProgress') {
         logger.debug('Download progress update:', message);
@@ -110,9 +119,15 @@ export function useClipperScanner() {
     }
   }
 
+  function setConvertToWebp(value: boolean) {
+    setConvertToWebpState(value);
+    browser.storage.local.set({ convertToWebp: value });
+    logger.debug('WebP conversion preference updated:', value);
+  }
+
   async function handleDownload() {
     if (!scanData || tabId === null) return;
-    logger.info('User initiated download:', { chapter: scanData.chapterInfo.slug, total: scanData.imageUrls.length });
+    logger.info('User initiated download:', { chapter: scanData.chapterInfo.slug, total: scanData.imageUrls.length, convertToWebp });
     setView('downloading');
     setProgress({ downloaded: 0, total: scanData.imageUrls.length, percent: 0, currentFile: 'Menyiapkan...' });
 
@@ -123,6 +138,7 @@ export function useClipperScanner() {
         chapterInfo: scanData.chapterInfo,
         tabId,
         referer: scanData.referer,
+        convertToWebp,
       });
 
       if (result?.ok) {
@@ -171,6 +187,8 @@ export function useClipperScanner() {
     progress,
     host,
     tabId,
+    convertToWebp,
+    setConvertToWebp,
     handleDownload,
     retryScan: initPopup,
   };

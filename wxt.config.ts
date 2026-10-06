@@ -17,7 +17,7 @@ export default defineConfig({
     name: 'KomikHQ Clipper',
     version: packageJson.version,
     description: 'Scan & download chapter comic images as a sequentially-named ZIP file for KomikHQ.',
-    permissions: ['activeTab', 'scripting', 'downloads', 'alarms'],
+    permissions: ['activeTab', 'scripting', 'downloads', 'alarms', 'storage'],
     host_permissions: [
       '*://*.komiku.org/*',
       '*://*.komiku.id/*',

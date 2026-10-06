@@ -16,6 +16,8 @@ function ClipperContent() {
     errorMsg,
     progress,
     host,
+    convertToWebp,
+    setConvertToWebp,
     handleDownload,
     retryScan,
   } = useClipperScanner();
@@ -39,7 +41,12 @@ function ClipperContent() {
       {/* Ready / Downloading / Done states */}
       {(view === 'ready' || view === 'downloading' || view === 'done') && scanData && (
         <>
-          <ChapterCard scanData={scanData} host={host} />
+          <ChapterCard
+            scanData={scanData}
+            host={host}
+            convertToWebp={convertToWebp}
+            onWebpToggleChange={setConvertToWebp}
+          />
 
           {/* Action button */}
           {view === 'ready' && (
