@@ -40,5 +40,15 @@ export function getAdapter(url: string): BaseAdapter | null {
 }
 
 export function getSupportedSites(): string[] {
-  return ['komiku.org', 'komiku.id', 'kiryuu.to', 'kiryuu.io', 'ainzscans01.com'];
+  return [
+    'komiku.org',
+    'komiku.id',
+    'komiku.to',
+    'kiryuu.id',
+    'kiryuu.org',
+    'kiryuu.io',
+    'kiryuu.to',
+    'ainzscans01.com',
+    'ainzscans.com',
+  ];
 }

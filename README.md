@@ -79,7 +79,7 @@ Built with [WXT](https://wxt.dev/), React 19, and TypeScript, the extension targ
 - **Adapter-based parsing** &mdash; each supported site has a dedicated parser with domain-specific extraction logic
 - **Cross-browser compatibility** &mdash; ships for Chrome, Firefox, and Edge from a unified build pipeline
 - **Dark and light themes** &mdash; the popup respects your system preference with a manual toggle
-- **Automated releases** &mdash; CI/CD pipeline builds extension packs, generates CRX3 bundles, signs Firefox XPIs, submits to Edge Add-ons, and publishes GitHub Releases with AI-generated changelogs
+- **Automated releases** &mdash; CI/CD pipeline builds extension packs, generates release notes via Gemini API, publishes GitHub Releases, and automatically submits updates to Edge Add-ons and Mozilla Firefox AMO
 
 ---
 
@@ -89,7 +89,7 @@ Built with [WXT](https://wxt.dev/), React 19, and TypeScript, the extension targ
 |:---|:---|:---|
 | Komiku | `komiku.org` / `komiku.id` / `komiku.to` | [`komiku.ts`](lib/adapters/komiku.ts) |
 | Kiryuu | `kiryuu.id` / `kiryuu.org` | [`kiryuu.ts`](lib/adapters/kiryuu.ts) |
-| Komikcast | `komikcast.cz` / `komikcast.lol` | [`komikcast.ts`](lib/adapters/komikcast.ts) |
+| AinzScans | `ainzscans.org` / `ainzscans.net` | [`ainzscans.ts`](lib/adapters/ainzscans.ts) |
 
 > Adding a new site? See the [Contributing Guide](CONTRIBUTING.md#adding-a-new-site-adapter).
 
@@ -111,9 +111,8 @@ Pre-built extension packages are attached to every [GitHub Release](https://gith
 | Artifact | Browser | Instructions |
 |:---|:---|:---|
 | `komikhq-clipper-vX.X.X-chrome.zip` | Chrome, Edge, Brave, Vivaldi, Opera | Unzip, then load via `chrome://extensions` with **Developer mode** enabled |
-| `komikhq-clipper-vX.X.X.crx` | Chrome, Edge, Brave, Vivaldi, Opera | Drag-and-drop the `.crx` file onto `chrome://extensions` |
 | `komikhq-clipper-vX.X.X-firefox.zip` | Firefox | Load as a temporary add-on via `about:debugging#/runtime/this-firefox` |
-| `komikhq-clipper-vX.X.X-firefox-signed.xpi` | Firefox | Open the file directly in Firefox to install permanently |
+| `komikhq-clipper-vX.X.X-sources.zip` | All | Source code bundle attached to release |
 
 ---
 
@@ -199,12 +198,14 @@ komikhq-clipper/
       base-adapter.ts       Abstract base class defining the adapter interface
       komiku.ts             Komiku site parser
       kiryuu.ts             Kiryuu site parser
-      komikcast.ts          Komikcast site parser
+      ainzscans.ts          AinzScans site parser
       registry.ts           Auto-detection registry mapping URLs to adapters
     logger.ts               Structured logging utility with scoped prefixes
   .github/
+    scripts/publish-store/  TypeScript publisher CLI scripts for Edge & Firefox AMO
     workflows/
-      create-release.yml    CI/CD: build, sign, submit, and publish releases
+      create-release.yml    CI/CD: build extension packs, generate AI release notes, create GitHub Release
+      publish-stores.yml    CI/CD: publish extension packages to Microsoft Edge & Mozilla AMO
 ```
 
 The extension follows a three-layer architecture:

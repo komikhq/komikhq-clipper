@@ -35,5 +35,6 @@ lib/adapters/
 ├── registry.ts       # Adapter auto-detection registry and lookup helper
 ├── komiku.ts         # Komiku parser adapter
 ├── kiryuu.ts         # Kiryuu parser adapter
+├── ainzscans.ts      # AinzScans parser adapter
 └── README.md         # Developer rules and architecture guide
 ```
