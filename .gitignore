@@ -24,3 +24,9 @@ web-ext.config.ts
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright outputs
+playwright/
+playwright-report/
+test-results/
+
