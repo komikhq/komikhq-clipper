@@ -13,7 +13,7 @@ export function StatusMessageCard({ type, message, onRetry }: StatusMessageCardP
     return (
       <div className="flex flex-col items-center justify-center gap-3 py-8 text-center">
         <CircleNotch weight="fill" className="w-7 h-7 animate-spin text-primary" />
-        <p className="text-sm font-medium text-muted-foreground">Memindai halaman komik...</p>
+        <p className="text-sm font-medium text-muted-foreground">Scanning comic pages...</p>
       </div>
     );
   }
@@ -24,7 +24,7 @@ export function StatusMessageCard({ type, message, onRetry }: StatusMessageCardP
         <Warning weight="fill" className="w-7 h-7" />
       </div>
       <div>
-        <h3 className="text-sm font-semibold text-foreground mb-1">Bukan Halaman Baca</h3>
+        <h3 className="text-sm font-semibold text-foreground mb-1">Not a Read Page</h3>
         <p className="text-xs text-muted-foreground px-2 leading-relaxed">
           {message || 'Pastikan Anda berada di halaman baca komik yang didukung (misal: komiku.org).'}
         </p>
@@ -37,7 +37,7 @@ export function StatusMessageCard({ type, message, onRetry }: StatusMessageCardP
           className="mt-1 gap-1.5 text-xs font-medium border-border"
         >
           <ArrowClockwise weight="bold" className="w-3.5 h-3.5" />
-          Coba Pindai Lagi
+          Try Scanning Again
         </Button>
       )}
     </div>

@@ -34,7 +34,7 @@ export function DownloadProgressCard({ progress, isDone }: DownloadProgressCardP
         {isDone && (
           <div className="flex items-center gap-1.5 text-xs text-emerald-500 font-medium pt-1">
             <CheckCircle weight="fill" className="w-4 h-4 text-emerald-500" />
-            <span>Download ZIP Selesai</span>
+            <span>ZIP Download Completed</span>
           </div>
         )}
       </CardContent>

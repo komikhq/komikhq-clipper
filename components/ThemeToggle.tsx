@@ -31,13 +31,13 @@ export function ThemeToggle() {
   const getLabel = () => {
     switch (theme) {
       case 'light':
-        return 'Tema Terang (Klik untuk ganti)';
+        return 'Light Theme (Click to change)';
       case 'dark':
-        return 'Tema Gelap (Klik untuk ganti)';
+        return 'Dark Theme (Click to change)';
       case 'system':
-        return 'Tema Sistem (Klik untuk ganti)';
+        return 'System Theme (Click to change)';
       default:
-        return 'Ganti Tema';
+        return 'Change Theme';
     }
   };
 
