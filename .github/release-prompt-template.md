@@ -16,6 +16,6 @@ Instructions:
 5. Do not use emojis in output.
 6. Output using clean Markdown syntax.
 7. Skip empty categories entirely.
-8. Keep it concise — no more than 30 lines.
+8. Keep it concise - no more than 30 lines.
 
 {{ARTIFACT_TABLE}}

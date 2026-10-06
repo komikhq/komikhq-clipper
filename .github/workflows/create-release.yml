@@ -5,9 +5,17 @@ on:
     tags:
       - 'v*'
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: 'Existing release tag to build, for example v1.0.0'
+        required: true
+        type: string
 
 permissions:
   contents: write
+
+env:
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref_name }}
 
 jobs:
   build-extensions:
@@ -19,6 +27,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -34,12 +43,17 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Extract Version from Tag
+      - name: Set Release Version
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "TAG_NAME=$GITHUB_REF_NAME" >> $GITHUB_ENV
-          echo "Building version: $VERSION"
+          set -euo pipefail
+          VERSION="${RELEASE_TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Release tag must contain a semver version: $RELEASE_TAG"
+            exit 1
+          fi
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "TAG_NAME=$RELEASE_TAG" >> "$GITHUB_ENV"
+          echo "Building $RELEASE_TAG (version $VERSION)"
 
       - name: Patch package.json Version
         run: |
@@ -51,6 +65,9 @@ jobs:
             console.log('Patched package.json version to:', pkg.version);
           "
           pnpm wxt prepare
+
+      - name: Typecheck
+        run: pnpm compile
 
       - name: Build Extension Packs (WXT)
         run: |
@@ -65,7 +82,7 @@ jobs:
           cp .output/komikhq-clipper-${VERSION}-firefox.zip "dist/komikhq-clipper-${TAG_NAME}-firefox.zip"
           cp .output/komikhq-clipper-${VERSION}-sources.zip "dist/komikhq-clipper-${TAG_NAME}-sources.zip"
 
-          echo "✅ Extension zips built"
+          echo "Extension zips built"
           ls -lh dist/
 
       - name: Build Chromium Extension (CRX3 Self-Signed)
@@ -83,115 +100,15 @@ jobs:
 
           # Cleanup
           rm -f /tmp/extension.pem
-          echo "✅ CRX3 built with consistent Extension ID"
+          echo "CRX3 built with consistent Extension ID"
           ls -lh dist/
-
-      - name: Skip Edge submission if EDGE_PRODUCT_ID is missing
-        if: ${{ secrets.EDGE_PRODUCT_ID == '' }}
-        run: |
-          echo "Skipping Edge submission because EDGE_PRODUCT_ID is not configured yet."
-
-      - name: Submit Extension to Microsoft Edge Add-ons Store
-        if: ${{ secrets.EDGE_PRODUCT_ID != '' }}
-        continue-on-error: true
-        env:
-          EDGE_PRODUCT_ID: ${{ secrets.EDGE_PRODUCT_ID }}
-          EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
-          EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
-        run: |
-          pnpm wxt submit \
-            -b edge \
-            --zip "dist/komikhq-clipper-${TAG_NAME}-chrome.zip"
-
-      - name: Skip AMO signing until AMO add-on exists
-        if: ${{ vars.AMO_ADDON_ID == '' }}
-        run: |
-          echo "Skipping AMO signing because AMO_ADDON_ID is not configured yet."
-          echo "Create the add-on in AMO Developer Hub first, then set the variable and rerun the workflow."
-
-      - name: Upload Firefox ZIP to AMO for signing
-        if: ${{ vars.AMO_ADDON_ID != '' }}
-        continue-on-error: true
-        env:
-          MOZILLA_JWT_ISSUER: ${{ secrets.MOZILLA_JWT_ISSUER }}
-          MOZILLA_JWT_SECRET: ${{ secrets.MOZILLA_JWT_SECRET }}
-          AMO_ADDON_ID: ${{ vars.AMO_ADDON_ID }}
-          AMO_API_BASE: https://addons.mozilla.org/api/v5
-        run: |
-          set -euo pipefail
-          FILE="dist/komikhq-clipper-${TAG_NAME}-firefox.zip"
-          if [ ! -f "$FILE" ]; then
-            echo "Missing Firefox ZIP: $FILE"
-            exit 1
-          fi
-
-          node <<'NODE'
-          const fs = require('fs');
-          const crypto = require('crypto');
-          const issuer = process.env.MOZILLA_JWT_ISSUER;
-          const secret = process.env.MOZILLA_JWT_SECRET;
-
-          if (!issuer || !secret) {
-            throw new Error('Missing MOZILLA_JWT_ISSUER or MOZILLA_JWT_SECRET GitHub secrets.');
-          }
-
-          const b64url = (value) => Buffer.from(value).toString('base64url');
-          const header = b64url(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
-          const now = Math.floor(Date.now() / 1000);
-          const payload = b64url(JSON.stringify({ iss: issuer, iat: now, exp: now + 300 }));
-          const signature = crypto.createHmac('sha256', secret).update(`${header}.${payload}`).digest('base64url');
-          fs.writeFileSync('/tmp/amo_jwt.txt', `${header}.${payload}.${signature}`);
-          NODE
-
-          JWT=$(cat /tmp/amo_jwt.txt)
-          echo "Uploading Firefox ZIP to AMO..."
-          curl -sS -D /tmp/amo_upload_headers.txt \
-            -H "Authorization: JWT ${JWT}" \
-            -F "upload=@${FILE}" \
-            -F "channel=unlisted" \
-            "${AMO_API_BASE}/addons/${AMO_ADDON_ID}/versions/" \
-            > /tmp/amo_upload_response.json
-
-          echo "AMO upload response:"
-          cat /tmp/amo_upload_response.json
-
-          node <<'NODE'
-          const fs = require('fs');
-          const raw = fs.readFileSync('/tmp/amo_upload_response.json', 'utf8');
-          let data;
-          try {
-            data = JSON.parse(raw);
-          } catch {
-            console.error('AMO response is not valid JSON.');
-            console.error(raw);
-            process.exit(1);
-          }
-
-          const signedUrl = data.url || data.download_url || data.file || data.signed_url;
-          if (!signedUrl) {
-            console.error('No signed artifact URL found in AMO response.');
-            console.error(JSON.stringify(data, null, 2));
-            process.exit(1);
-          }
-
-          fs.writeFileSync('/tmp/amo_signed_url.txt', signedUrl);
-          console.log('Signed URL discovered:', signedUrl);
-          NODE
-
-          SIGNED_URL=$(cat /tmp/amo_signed_url.txt)
-          curl -L -sS \
-            -H "Authorization: JWT ${JWT}" \
-            "${SIGNED_URL}" \
-            -o "dist/komikhq-clipper-${TAG_NAME}-firefox-signed.xpi"
-
-          ls -lh "dist/komikhq-clipper-${TAG_NAME}-firefox-signed.xpi"
 
       - name: Generate AI Release Notes via Gemini API
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GITHUB_REPOSITORY: ${{ github.repository }}
-          GITHUB_REF_NAME: ${{ github.ref_name }}
-        run: node .github/scripts/generate_release_notes.js
+          GITHUB_REF_NAME: ${{ env.RELEASE_TAG }}
+        run: node .github/scripts/generate-release-notes/index.cjs
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -199,13 +116,11 @@ jobs:
           body_path: release_notes.md
           draft: false
           if-no-files-found: ignore
-          prerelease: ${{ contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          prerelease: ${{ contains(env.RELEASE_TAG, 'beta') || contains(env.RELEASE_TAG, 'alpha') || contains(env.RELEASE_TAG, 'rc') }}
           files: |
             dist/komikhq-clipper-${{ env.TAG_NAME }}-chrome.zip
             dist/komikhq-clipper-${{ env.TAG_NAME }}.crx
             dist/komikhq-clipper-${{ env.TAG_NAME }}-firefox.zip
             dist/komikhq-clipper-${{ env.TAG_NAME }}-sources.zip
-            dist/komikhq-clipper-${{ env.TAG_NAME }}-firefox-signed.xpi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
