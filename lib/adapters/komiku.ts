@@ -71,27 +71,19 @@ export class KomikuAdapter extends BaseAdapter {
     const urls: string[] = [];
 
     for (const img of allImgs) {
-      const src = img.getAttribute('data-src') || img.getAttribute('src') || '';
+      const src =
+        img.getAttribute('data-src') ||
+        img.getAttribute('data-lazy-src') ||
+        img.getAttribute('src') ||
+        '';
+
       if (!src.trim()) continue;
 
-      const isPromo = KomikuAdapter.PROMO_PATTERNS.some((p) =>
-        src.toLowerCase().includes(p.toLowerCase()),
-      );
-      if (isPromo) continue;
+      let absoluteUrl = src;
+      if (src.startsWith('//')) absoluteUrl = 'https:' + src;
+      else if (src.startsWith('/')) absoluteUrl = window.location.origin + src;
 
-      const width = parseInt(img.getAttribute('width') || '0', 10);
-      const height = parseInt(img.getAttribute('height') || '0', 10);
-      if ((width > 0 && width < 50) || (height > 0 && height < 50)) continue;
-
-      const hasChapterClass = img.classList.contains('klazy') || img.classList.contains('ww');
-      const isKomikuImage = /image\d*\.komiku\.to|img\.komiku\.org/.test(src);
-
-      if (hasChapterClass || isKomikuImage) {
-        let absoluteUrl = src;
-        if (src.startsWith('//')) absoluteUrl = 'https:' + src;
-        else if (src.startsWith('/')) absoluteUrl = window.location.origin + src;
-        urls.push(absoluteUrl);
-      }
+      urls.push(absoluteUrl);
     }
 
     return urls;
