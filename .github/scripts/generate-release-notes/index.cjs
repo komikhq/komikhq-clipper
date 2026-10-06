@@ -47,7 +47,6 @@ function generateArtifactTable(repo, tag) {
 | Platform | File | Install Method |
 | --- | --- | --- |
 | Chromium (Chrome/Edge/Brave) | [\`komikhq-clipper-${tag}-chrome.zip\`](https://github.com/${repo}/releases/download/${tag}/komikhq-clipper-${tag}-chrome.zip) | Load unpacked / Developer mode |
-| Chromium (CRX3 Self-Signed) | [\`komikhq-clipper-${tag}.crx\`](https://github.com/${repo}/releases/download/${tag}/komikhq-clipper-${tag}.crx) | Drag to \`chrome://extensions\` |
 | Firefox | [\`komikhq-clipper-${tag}-firefox.zip\`](https://github.com/${repo}/releases/download/${tag}/komikhq-clipper-${tag}-firefox.zip) | Load temporary add-on in \`about:debugging\` |
 | Source Code (Store Verification) | [\`komikhq-clipper-${tag}-sources.zip\`](https://github.com/${repo}/releases/download/${tag}/komikhq-clipper-${tag}-sources.zip) | Source zip for submission verification |
 `;
