@@ -1,11 +1,11 @@
 import { test } from '@playwright/test';
 
-// Direct slug paths on komiku.org
+// Exact tested slugs on komiku.org
 const TITLES_TO_TEST = [
   { name: 'One Piece', slug: 'manga/komik-one-piece-indo' },
-  { name: 'Naruto', slug: 'manga/naruto-komik' },
+  { name: 'Naruto', slug: 'manga/naruto' },
   { name: 'Boruto', slug: 'manga/boruto-id' },
-  { name: 'Boruto Two Blue Vortex', slug: 'manga/boruto-two-blue-vortex' },
+  { name: 'Boruto Two Blue Vortex', slug: 'manga/boruto-two-blue-vortex-indo' },
   { name: 'Solo Leveling', slug: 'manga/solo-leveling' },
   { name: 'Full-Time Awakening', slug: 'manga/full-time-awakening' }
 ];
@@ -18,38 +18,37 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
     console.log(`ANALYZING TITLE: "${item.name}"`);
     console.log(`==================================================`);
 
-    // First try direct slug URL
     let comicUrl = `https://komiku.org/${item.slug}/`;
     let res = await page.goto(comicUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
     if (!res || res.status() === 404) {
-      console.log(`Direct URL 404 for ${comicUrl}, searching site...`);
-      const searchUrl = `https://komiku.org/?post_type=manga&s=${encodeURIComponent(item.name)}`;
-      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-      
-      const links = await page.locator('a').all();
-      for (const link of links) {
-        const href = await link.getAttribute('href');
-        if (href && href.includes('/manga/')) {
-          comicUrl = href.startsWith('http') ? href : new URL(href, page.url()).toString();
-          await page.goto(comicUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
-          break;
+      console.log(`Direct URL 404 for ${comicUrl}, searching site via text search...`);
+      await page.goto('https://komiku.org/', { waitUntil: 'domcontentloaded' });
+      const searchBox = page.locator('input[name="s"]').first();
+      if (await searchBox.isVisible()) {
+        await searchBox.fill(item.name);
+        await searchBox.press('Enter');
+        await page.waitForTimeout(2000);
+        const firstResult = page.locator('.bge a[href*="/manga/"]').first();
+        if (await firstResult.isVisible()) {
+          const href = await firstResult.getAttribute('href');
+          if (href) {
+            comicUrl = href.startsWith('http') ? href : new URL(href, page.url()).toString();
+            await page.goto(comicUrl, { waitUntil: 'domcontentloaded' });
+          }
         }
       }
     }
 
     console.log(`📌 Comic Detail Page URL: ${page.url()}`);
 
-    // Look for chapter links
     const chapterLinks = await page.locator('a[href*="chapter"]').all();
-    console.log(`📊 Found ${chapterLinks.length} raw chapter links on detail page.`);
-
     const uniqueChapterUrls: string[] = [];
+
     for (const link of chapterLinks) {
       const href = await link.getAttribute('href');
       if (href) {
         const fullUrl = href.startsWith('http') ? href : new URL(href, page.url()).toString();
-        // Ignore comic detail or genre self-references
         if (fullUrl.includes('chapter') && !uniqueChapterUrls.includes(fullUrl)) {
           uniqueChapterUrls.push(fullUrl);
         }
@@ -64,13 +63,14 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
     }
 
     const targetChapterUrls: { label: string; url: string }[] = [];
-    targetChapterUrls.push({ label: 'AKHIR (Newest)', url: uniqueChapterUrls[0]! });
+    // Note: chapter table lists newest first (index 0) and oldest last (last index)
+    targetChapterUrls.push({ label: 'AKHIR / TERBARU', url: uniqueChapterUrls[0]! });
     if (uniqueChapterUrls.length > 2) {
       const midIdx = Math.floor(uniqueChapterUrls.length / 2);
-      targetChapterUrls.push({ label: 'PERTENGAHAN (Mid)', url: uniqueChapterUrls[midIdx]! });
+      targetChapterUrls.push({ label: 'PERTENGAHAN', url: uniqueChapterUrls[midIdx]! });
     }
     if (uniqueChapterUrls.length > 1) {
-      targetChapterUrls.push({ label: 'AWAL (Oldest)', url: uniqueChapterUrls[uniqueChapterUrls.length - 1]! });
+      targetChapterUrls.push({ label: 'AWAL / CHAPTER 1', url: uniqueChapterUrls[uniqueChapterUrls.length - 1]! });
     }
 
     for (const ch of targetChapterUrls) {
