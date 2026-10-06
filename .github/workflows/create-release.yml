@@ -85,24 +85,6 @@ jobs:
           echo "Extension zips built"
           ls -lh dist/
 
-      - name: Build Chromium Extension (CRX3 Self-Signed)
-        run: |
-          # Decode PEM key from secret
-          echo "${{ secrets.EXTENSION_PEM_KEY }}" > /tmp/extension.pem
-
-          # Install crx3 CLI
-          npm install -g crx3
-
-          # Pack CRX3 directly from WXT Chrome build directory
-          crx3 pack .output/chrome-mv3 \
-            -p /tmp/extension.pem \
-            -o "dist/komikhq-clipper-${TAG_NAME}.crx"
-
-          # Cleanup
-          rm -f /tmp/extension.pem
-          echo "CRX3 built with consistent Extension ID"
-          ls -lh dist/
-
       - name: Generate AI Release Notes via Gemini API
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
@@ -119,7 +101,6 @@ jobs:
           prerelease: ${{ contains(env.RELEASE_TAG, 'beta') || contains(env.RELEASE_TAG, 'alpha') || contains(env.RELEASE_TAG, 'rc') }}
           files: |
             dist/komikhq-clipper-${{ env.TAG_NAME }}-chrome.zip
-            dist/komikhq-clipper-${{ env.TAG_NAME }}.crx
             dist/komikhq-clipper-${{ env.TAG_NAME }}-firefox.zip
             dist/komikhq-clipper-${{ env.TAG_NAME }}-sources.zip
         env:
