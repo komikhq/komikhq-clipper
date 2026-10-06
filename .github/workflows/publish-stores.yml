@@ -1,6 +1,10 @@
 name: Publish to Web Stores
 
 on:
+  workflow_run:
+    workflows: ["Build & Release Extension Packs"]
+    types:
+      - completed
   release:
     types: [published]
   workflow_dispatch:
@@ -14,12 +18,13 @@ permissions:
   contents: read
 
 env:
-  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.event.release.tag_name }}
+  RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.event.release.tag_name || github.event.workflow_run.head_branch }}
 
 jobs:
   # --- Stage 1: Build Extension Packages ---
   build:
     name: Build Extension Packages
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.version.outputs.version }}
