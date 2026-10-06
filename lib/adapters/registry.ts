@@ -1,15 +1,13 @@
 import { BaseAdapter } from './base-adapter';
 import { KomikuAdapter } from './komiku';
 import { KiryuuAdapter } from './kiryuu';
-import { KomikcastAdapter } from './komikcast';
 
 /**
- * Registry adapter — auto-detect situs berdasarkan URL.
+ * Registry adapter — auto-detect site based on current URL.
  */
 const adapters: BaseAdapter[] = [
   new KomikuAdapter(),
   new KiryuuAdapter(),
-  new KomikcastAdapter(),
 ];
 
 export function getAdapter(url: string): BaseAdapter | null {
@@ -17,5 +15,5 @@ export function getAdapter(url: string): BaseAdapter | null {
 }
 
 export function getSupportedSites(): string[] {
-  return ['komiku.org', 'komiku.id', 'kiryuu.to', 'kiryuu.io', 'westmanga.my'];
+  return ['komiku.org', 'komiku.id', 'kiryuu.to', 'kiryuu.io'];
 }

@@ -26,10 +26,6 @@ export default defineConfig({
       '*://*.kiryuu.org/*',
       '*://*.kiryuu.io/*',
       '*://*.kiryuu.to/*',
-      '*://*.westmanga.site/*',
-      '*://*.westmanga.my/*',
-      '*://*.komikcast.cz/*',
-      '*://*.komikcast.lol/*',
     ],
     ...(browser === 'firefox' && {
       browser_specific_settings: {

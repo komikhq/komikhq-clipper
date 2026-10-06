@@ -12,10 +12,6 @@ export default defineContentScript({
     '*://*.kiryuu.org/*',
     '*://*.kiryuu.io/*',
     '*://*.kiryuu.to/*',
-    '*://*.westmanga.site/*',
-    '*://*.westmanga.my/*',
-    '*://*.komikcast.cz/*',
-    '*://*.komikcast.lol/*',
   ],
   main() {
     browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
