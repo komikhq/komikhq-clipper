@@ -1,13 +1,13 @@
 import { test } from '@playwright/test';
 
-// Exact comic URLs on komiku.org
+// Direct slug paths on komiku.org
 const TITLES_TO_TEST = [
-  { name: 'One Piece', search: 'one-piece' },
-  { name: 'Naruto', search: 'naruto' },
-  { name: 'Boruto', search: 'boruto' },
-  { name: 'Boruto Two Blue Vortex', search: 'boruto-two-blue-vortex' },
-  { name: 'Solo Leveling', search: 'solo-leveling' },
-  { name: 'Full-Time Awakening', search: 'full-time-awakening' }
+  { name: 'One Piece', slug: 'manga/komik-one-piece-indo' },
+  { name: 'Naruto', slug: 'manga/naruto-komik' },
+  { name: 'Boruto', slug: 'manga/boruto-id' },
+  { name: 'Boruto Two Blue Vortex', slug: 'manga/boruto-two-blue-vortex' },
+  { name: 'Solo Leveling', slug: 'manga/solo-leveling' },
+  { name: 'Full-Time Awakening', slug: 'manga/full-time-awakening' }
 ];
 
 test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
@@ -18,56 +18,39 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
     console.log(`ANALYZING TITLE: "${item.name}"`);
     console.log(`==================================================`);
 
-    // Search page
-    const searchUrl = `https://komiku.org/?post_type=manga&s=${encodeURIComponent(item.search)}`;
-    await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // First try direct slug URL
+    let comicUrl = `https://komiku.org/${item.slug}/`;
+    let res = await page.goto(comicUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-    const comicLinks = await page.locator('.daftar h3 a, .bge a, h2 a').all();
-    let comicUrl = '';
-
-    for (const link of comicLinks) {
-      const href = await link.getAttribute('href');
-      if (href && href.includes('/manga/')) {
-        comicUrl = href.startsWith('http') ? href : new URL(href, page.url()).toString();
-        break;
-      }
-    }
-
-    if (!comicUrl) {
-      const anyMangaLink = await page.locator('a[href*="/manga/"]').all();
-      for (const link of anyMangaLink) {
+    if (!res || res.status() === 404) {
+      console.log(`Direct URL 404 for ${comicUrl}, searching site...`);
+      const searchUrl = `https://komiku.org/?post_type=manga&s=${encodeURIComponent(item.name)}`;
+      await page.goto(searchUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+      
+      const links = await page.locator('a').all();
+      for (const link of links) {
         const href = await link.getAttribute('href');
-        if (href && !href.includes('/genre/')) {
+        if (href && href.includes('/manga/')) {
           comicUrl = href.startsWith('http') ? href : new URL(href, page.url()).toString();
+          await page.goto(comicUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
           break;
         }
       }
     }
 
-    if (!comicUrl) {
-      console.log(`❌ No comic detail URL found for "${item.name}"`);
-      continue;
-    }
+    console.log(`📌 Comic Detail Page URL: ${page.url()}`);
 
-    console.log(`📌 Comic Detail Page URL: ${comicUrl}`);
-    await page.goto(comicUrl, { waitUntil: 'domcontentloaded', timeout: 30000 });
+    // Look for chapter links
+    const chapterLinks = await page.locator('a[href*="chapter"]').all();
+    console.log(`📊 Found ${chapterLinks.length} raw chapter links on detail page.`);
 
-    // Look for chapter links in chapter table
-    const chapterLinks = await page.locator('#Daftar_Chapter a[href*="chapter"], table a[href*="chapter"], a[href*="chapter"]').all();
-    console.log(`📊 Found ${chapterLinks.length} chapter links on detail page.`);
-
-    if (chapterLinks.length === 0) {
-      console.log(`❌ No chapter links found on detail page!`);
-      continue;
-    }
-
-    // Filter unique chapter URLs
     const uniqueChapterUrls: string[] = [];
     for (const link of chapterLinks) {
       const href = await link.getAttribute('href');
       if (href) {
         const fullUrl = href.startsWith('http') ? href : new URL(href, page.url()).toString();
-        if (!uniqueChapterUrls.includes(fullUrl)) {
+        // Ignore comic detail or genre self-references
+        if (fullUrl.includes('chapter') && !uniqueChapterUrls.includes(fullUrl)) {
           uniqueChapterUrls.push(fullUrl);
         }
       }
@@ -75,16 +58,19 @@ test('Deep analysis of requested titles on komiku.org', async ({ page }) => {
 
     console.log(`📊 Unique chapter URLs: ${uniqueChapterUrls.length}`);
 
+    if (uniqueChapterUrls.length === 0) {
+      console.log(`❌ No chapter links found!`);
+      continue;
+    }
+
     const targetChapterUrls: { label: string; url: string }[] = [];
-    if (uniqueChapterUrls.length > 0) {
-      targetChapterUrls.push({ label: 'AKHIR (Newest)', url: uniqueChapterUrls[0]! });
-      if (uniqueChapterUrls.length > 2) {
-        const midIdx = Math.floor(uniqueChapterUrls.length / 2);
-        targetChapterUrls.push({ label: 'PERTENGAHAN (Mid)', url: uniqueChapterUrls[midIdx]! });
-      }
-      if (uniqueChapterUrls.length > 1) {
-        targetChapterUrls.push({ label: 'AWAL (Oldest)', url: uniqueChapterUrls[uniqueChapterUrls.length - 1]! });
-      }
+    targetChapterUrls.push({ label: 'AKHIR (Newest)', url: uniqueChapterUrls[0]! });
+    if (uniqueChapterUrls.length > 2) {
+      const midIdx = Math.floor(uniqueChapterUrls.length / 2);
+      targetChapterUrls.push({ label: 'PERTENGAHAN (Mid)', url: uniqueChapterUrls[midIdx]! });
+    }
+    if (uniqueChapterUrls.length > 1) {
+      targetChapterUrls.push({ label: 'AWAL (Oldest)', url: uniqueChapterUrls[uniqueChapterUrls.length - 1]! });
     }
 
     for (const ch of targetChapterUrls) {
