@@ -4,11 +4,19 @@ This directory contains the End-to-End (E2E) automated tests for `komikhq-clippe
 
 ---
 
-## Language & Coding Conventions
+## Language, Modularity & Architecture Conventions
 
-- **Language**: All test files, test suite descriptions, test case titles, variable names, and documentation **MUST** be written in **English**.
-- **File Naming**: Name test files using standard `.spec.ts` suffix (e.g., `example.spec.ts`, `downloader.spec.ts`).
-- **Structure**: Group related test scenarios using `test.describe('Suite Title', ...)` blocks and express individual expectations clearly using `test('should ...', ...)` blocks.
+### 1. English Only
+- All test files, test suite descriptions, test case titles, variable names, and documentation **MUST** be written in **English**.
+
+### 2. Strict Modularity & Single Responsibility
+- **No Monolithic Design**: Never write monolithic test suites or code files. Every file must serve one specific, highly-focused feature or domain responsibility.
+- **Specific File Naming**: Avoid broad or generic file names (e.g., `helpers.ts`, `all-tests.spec.ts`, `utils.spec.ts`). Use clear, purpose-driven file names (e.g., `komiku-adapter.spec.ts`, `zip-generation.spec.ts`).
+- **File Size Limit**: No file should exceed **200 lines of code**. If a file approaches or exceeds 200 lines, immediately refactor and split it into smaller, modular sub-modules or page objects.
+
+### 3. Test Structure
+- Name test files using standard `.spec.ts` suffix (e.g., `smoke.spec.ts`, `komiku-parser.spec.ts`).
+- Group related test scenarios using `test.describe('Suite Title', ...)` blocks and express individual expectations clearly using `test('should ...', ...)` blocks.
 
 ---
 
@@ -18,7 +26,7 @@ This directory contains the End-to-End (E2E) automated tests for `komikhq-clippe
 tests/
 ├── e2e/
 │   ├── example.spec.ts   # Example smoke test
-│   └── ...               # Additional E2E test specs
+│   └── ...               # Focused E2E spec files (< 200 lines per file)
 └── README.md             # E2E test documentation
 ```
 
