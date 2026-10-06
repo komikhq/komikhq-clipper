@@ -26,6 +26,8 @@ export default defineConfig({
       '*://*.kiryuu.org/*',
       '*://*.kiryuu.io/*',
       '*://*.kiryuu.to/*',
+      '*://*.ainzscans01.com/*',
+      '*://*.ainzscans.com/*',
     ],
     ...(browser === 'firefox' && {
       browser_specific_settings: {

@@ -12,6 +12,8 @@ export default defineContentScript({
     '*://*.kiryuu.org/*',
     '*://*.kiryuu.io/*',
     '*://*.kiryuu.to/*',
+    '*://*.ainzscans01.com/*',
+    '*://*.ainzscans.com/*',
   ],
   main() {
     browser.runtime.onMessage.addListener((message, _sender, sendResponse) => {
