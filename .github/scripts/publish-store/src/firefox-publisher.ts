@@ -80,22 +80,16 @@ export class FirefoxStorePublisher extends BaseStorePublisher {
   }
 
   async uploadPackage(): Promise<string> {
-    const uploadUrl = `${FirefoxStorePublisher.AMO_BASE_URL}/addons/${this.credentials.extensionId}/versions/${this.config.version}/`;
+    const uploadUrl = `${FirefoxStorePublisher.AMO_BASE_URL}/addons/upload/`;
     const zipData = this.readFileAsArrayBuffer(this.config.zipFilePath);
-    const sourceData = this.findSourcesZip();
 
-    // AMO v5 uses multipart/form-data for version creation
     const formData = new FormData();
     formData.append('upload', new Blob([zipData], { type: 'application/zip' }), 'extension.zip');
+    formData.append('channel', 'listed');
 
-    // Attach sources archive if available (required by some reviewers for bundled code)
-    if (sourceData) {
-      formData.append('source', new Blob([sourceData], { type: 'application/zip' }), 'sources.zip');
-      this.log('Sources archive attached for review.');
-    }
-
+    this.log('Uploading package to AMO validation service...');
     const response = await fetch(uploadUrl, {
-      method: 'PUT',
+      method: 'POST',
       headers: this.authHeaders(),
       body: formData,
     });
@@ -105,16 +99,77 @@ export class FirefoxStorePublisher extends BaseStorePublisher {
       throw new Error(`AMO upload failed: HTTP ${response.status} - ${errorBody}`);
     }
 
-    const data = (await response.json()) as { uuid?: string; version: string; processed?: boolean };
-    this.log(`Version ${data.version} uploaded.`);
+    const data = (await response.json()) as { uuid: string };
+    const uploadUuid = data.uuid;
+    this.log(`Upload accepted. Upload UUID: ${uploadUuid}`);
 
-    return data.uuid || data.version;
+    await this.pollValidationStatus(uploadUuid);
+    return uploadUuid;
   }
 
-  async publish(_operationId: string): Promise<PublishResult> {
-    // For listed add-ons, uploading via the v5 API automatically creates
-    // the version in a reviewable state. No separate publish call is needed.
-    // The add-on goes live after Mozilla's review process.
+  private async pollValidationStatus(uploadUuid: string): Promise<void> {
+    const maxAttempts = 30;
+    const delayMs = 3000;
+    const detailUrl = `${FirefoxStorePublisher.AMO_BASE_URL}/addons/upload/${uploadUuid}/`;
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      this.log(`Polling validation status (attempt ${attempt}/${maxAttempts})...`);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+
+      const response = await fetch(detailUrl, {
+        headers: this.authHeaders(),
+      });
+
+      if (!response.ok) continue;
+
+      const data = (await response.json()) as {
+        processed: boolean;
+        valid: boolean;
+        validation?: { messages?: Array<{ message: string; type: string }> };
+      };
+
+      if (data.processed) {
+        if (!data.valid) {
+          const errors = data.validation?.messages
+            ?.filter((m) => m.type === 'error')
+            .map((m) => m.message)
+            .join('; ') || 'Validation failed without specific error message';
+          throw new Error(`AMO package validation failed: ${errors}`);
+        }
+        this.log('Package validation passed.');
+        return;
+      }
+    }
+
+    throw new Error('AMO package validation timed out after polling.');
+  }
+
+  async publish(uploadUuid: string): Promise<PublishResult> {
+    const versionUrl = `${FirefoxStorePublisher.AMO_BASE_URL}/addons/addon/${this.credentials.extensionId}/versions/`;
+    const sourceData = this.findSourcesZip();
+
+    const formData = new FormData();
+    formData.append('upload', uploadUuid);
+
+    if (sourceData) {
+      formData.append('source', new Blob([sourceData], { type: 'application/zip' }), 'sources.zip');
+      this.log('Sources archive attached for review.');
+    }
+
+    const response = await fetch(versionUrl, {
+      method: 'POST',
+      headers: this.authHeaders(),
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorBody = await response.text();
+      throw new Error(`AMO version creation failed: HTTP ${response.status} - ${errorBody}`);
+    }
+
+    const data = (await response.json()) as { id: number; version: string };
+    this.log(`Version ${data.version} created (ID: ${data.id}).`);
+
     return {
       storeName: this.storeName,
       success: true,
