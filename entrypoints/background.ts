@@ -45,9 +45,13 @@ async function convertBlobToWebP(
     bitmap.close();
     const webpBlob = await canvas.convertToBlob({ type: 'image/webp', quality });
     const webpBuffer = await webpBlob.arrayBuffer();
+    logger.logEvent('DEBUG', 'WEBP_CONVERSION_SUCCESS', 'Converted image to WebP format', {
+      originalSize: buffer.byteLength,
+      convertedSize: webpBuffer.byteLength,
+    });
     return { data: webpBuffer, ext: 'webp', converted: true };
-  } catch (err) {
-    logger.warn('WebP conversion failed, keeping original format:', err);
+  } catch (err: any) {
+    logger.logEvent('WARN', 'WEBP_CONVERSION_FAILED', 'WebP conversion failed, keeping original format', {}, err);
     return { data: buffer, ext: '', converted: false };
   }
 }
@@ -79,7 +83,14 @@ async function downloadChapterAsZip(
   let downloaded = 0;
   const errors: { index: number; url: string; error: string }[] = [];
 
-  logger.info('Starting chapter download:', { title: chapterInfo.title, chapter: chapterInfo.chapter, totalImages: total });
+  logger.logEvent('INFO', 'PIPELINE_START', 'Starting chapter download pipeline', {
+    title: chapterInfo.title,
+    chapter: chapterInfo.chapter,
+    slug: chapterInfo.slug,
+    totalImages: total,
+    convertToWebp,
+    referer,
+  });
 
   await browser.action.setBadgeText({ text: '0%', tabId });
   await browser.action.setBadgeBackgroundColor({ color: '#3b82f6', tabId });
@@ -128,7 +139,15 @@ async function downloadChapterAsZip(
 
       const percent = Math.round((downloaded / total) * 100);
       await browser.action.setBadgeText({ text: `${percent}%`, tabId });
-      logger.debug(`Downloaded image ${i + 1}/${total}: ${fileName}`);
+
+      logger.logEvent('DEBUG', 'IMAGE_FETCH_SUCCESS', `Downloaded image ${i + 1}/${total}`, {
+        index: i,
+        fileName,
+        url: url.substring(0, 150),
+        httpStatus: response.status,
+        byteSize: finalBuffer.byteLength,
+        contentType,
+      });
 
       try {
         await browser.runtime.sendMessage({
@@ -141,9 +160,15 @@ async function downloadChapterAsZip(
       } catch { /* popup mungkin tertutup */ }
     } catch (err: any) {
       const errorMessage = err.name === 'AbortError'
-        ? `Timeout setelah ${FETCH_TIMEOUT_MS / 1000} detik`
+        ? `Timeout after ${FETCH_TIMEOUT_MS / 1000} seconds`
         : err.message;
-      logger.warn(`Failed to download image ${i + 1}/${total}:`, { url, error: errorMessage });
+
+      logger.logEvent('WARN', 'IMAGE_FETCH_RETRY', `Failed to download image ${i + 1}/${total}`, {
+        index: i,
+        url: url.substring(0, 150),
+        error: errorMessage,
+      }, err);
+
       errors.push({ index: i, url, error: errorMessage });
     }
   }
@@ -151,18 +176,34 @@ async function downloadChapterAsZip(
   if (downloaded === 0) {
     await browser.action.setBadgeText({ text: 'ERR', tabId });
     await browser.action.setBadgeBackgroundColor({ color: '#ef4444', tabId });
-    logger.error('Download failed: No images were successfully downloaded.');
+
+    logger.logEvent('ERROR', 'IMAGE_FETCH_FAILURE', 'Download pipeline failed: no images were successfully downloaded', {
+      totalAttempted: total,
+      errors,
+    });
+
     throw new Error('Tidak ada gambar yang berhasil diunduh.');
   }
+
+  logger.logEvent('INFO', 'ZIP_COMPRESSION_START', 'Generating ZIP archive', {
+    downloadedImages: downloaded,
+    totalImages: total,
+    errorCount: errors.length,
+  });
 
   await browser.action.setBadgeText({ text: 'ZIP', tabId });
   const dataUrl = await zip.generateAsync({ type: 'base64' });
   const zipFileName = `${chapterInfo.slug}.zip`;
 
-  await browser.action.setBadgeText({ text: '✓', tabId });
+  await browser.action.setBadgeText({ text: 'OK', tabId });
   await browser.action.setBadgeBackgroundColor({ color: '#10b981', tabId });
 
-  logger.info('ZIP generated successfully:', { zipFileName, downloaded, total, errorsCount: errors.length });
+  logger.logEvent('INFO', 'ZIP_COMPRESSION_COMPLETE', 'ZIP archive generated successfully', {
+    zipFileName,
+    downloaded,
+    total,
+    errorsCount: errors.length,
+  });
 
   browser.alarms.create('clearBadge', { delayInMinutes: 0.05 });
 
@@ -170,14 +211,24 @@ async function downloadChapterAsZip(
 }
 
 export default defineBackground(() => {
+  logger.logEvent('INFO', 'EXTENSION_INITIALIZED', 'Background service worker loaded', {
+    extensionId: browser.runtime.id,
+  });
+
   browser.runtime.onMessage.addListener((message: DownloadRequest, _sender, sendResponse) => {
-    logger.debug('Received runtime message:', message.action);
+    logger.logEvent('DEBUG', 'MESSAGE_RECEIVED', `Received runtime message: ${message.action}`, {
+      action: message.action,
+    });
+
     if (message.action === 'downloadZip') {
       const { imageUrls, chapterInfo, tabId, referer, convertToWebp } = message;
       downloadChapterAsZip(imageUrls, chapterInfo, tabId, referer, convertToWebp)
         .then((result) => sendResponse(result))
         .catch((err) => {
-          logger.error('Error handling downloadZip message:', err);
+          logger.logEvent('ERROR', 'PIPELINE_FAILED', 'Error handling downloadZip message', {
+            chapter: chapterInfo?.chapter,
+            title: chapterInfo?.title,
+          }, err);
           sendResponse({ ok: false, error: err.message });
         });
       return true; // keep channel open for async
@@ -186,19 +237,24 @@ export default defineBackground(() => {
 
   browser.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === 'clearBadge') {
-      logger.debug('Clearing badge text');
+      logger.logEvent('DEBUG', 'BADGE_CLEARED', 'Clearing badge text after alarm');
       await browser.action.setBadgeText({ text: '' });
     }
   });
 
   self.addEventListener('unhandledrejection', (event: any) => {
-    logger.error('Unhandled Promise Rejection:', event.reason);
+    logger.logEvent('ERROR', 'UNHANDLED_REJECTION', 'Unhandled Promise Rejection in background', {}, {
+      name: 'UnhandledRejection',
+      message: String(event.reason),
+      stack: event.reason?.stack,
+    });
   });
 
   self.addEventListener('error', (event: any) => {
-    logger.error('Uncaught Error:', event.error || event.message);
+    logger.logEvent('ERROR', 'UNCAUGHT_ERROR', 'Uncaught Error in background', {}, {
+      name: 'UncaughtError',
+      message: event.error?.message || event.message || 'Unknown error',
+      stack: event.error?.stack,
+    });
   });
-
-  logger.info('Background loaded.', { id: browser.runtime.id });
 });
-
