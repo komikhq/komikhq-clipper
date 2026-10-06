@@ -10,6 +10,10 @@ export default defineContentScript({
     '*://*.komiku.to/*',
     '*://*.kiryuu.id/*',
     '*://*.kiryuu.org/*',
+    '*://*.kiryuu.io/*',
+    '*://*.kiryuu.to/*',
+    '*://*.westmanga.site/*',
+    '*://*.westmanga.my/*',
     '*://*.komikcast.cz/*',
     '*://*.komikcast.lol/*',
   ],
@@ -50,9 +54,18 @@ export default defineContentScript({
           return false;
         }
 
+        console.log('[KomikHQ:Content] Received scan request on URL:', window.location.href);
         const chapterInfo = adapter.getChapterInfo();
         const imageUrls = adapter.getImageUrls();
         const referer = adapter.getReferer();
+
+        console.log('[KomikHQ:Content] Scan details:', {
+          adapter: adapter.constructor.name,
+          isReaderPage: adapter.isReaderPage(),
+          chapterInfo,
+          imageCount: imageUrls.length,
+          urlsSample: imageUrls.slice(0, 5),
+        });
 
         logger.info('Scan successful:', { chapter: chapterInfo.chapter, imageCount: imageUrls.length });
 
@@ -72,7 +85,30 @@ export default defineContentScript({
     });
 
     const adapter = getAdapter(window.location.href);
-    logger.info('Content script loaded. Adapter:', adapter?.constructor?.name || 'none');
+    console.log('[KomikHQ:Content] Content script loaded on page:', window.location.href);
+    console.log('[KomikHQ:Content] Detected Adapter:', adapter ? adapter.constructor.name : 'NONE (URL matched but no adapter matched)');
+
+    if (adapter) {
+      const isReader = adapter.isReaderPage();
+      const diag = adapter.inspectDiagnostics();
+
+      console.log(`[KomikHQ:${diag.siteName}] Auto-Scan Diagnostic Summary:`, {
+        url: window.location.href,
+        isReaderPage: diag.isReaderPage,
+        containerFound: diag.containerFound || 'None',
+        detectedImages: diag.imageCount,
+        skippedImages: diag.skipCount,
+        diagnosticNotes: diag.reasons,
+      });
+
+      if (isReader && diag.imageCount > 0) {
+        const info = adapter.getChapterInfo();
+        const urls = adapter.getImageUrls();
+        console.log(`[KomikHQ:${diag.siteName}] SCAN SUCCESS: Detected ${urls.length} comic images for chapter "${info.chapter}" of "${info.title}".`);
+      } else {
+        console.warn(`[KomikHQ:${diag.siteName}] SCAN WARNING / FAILURE: 0 images detected or not a reader page. Reasons:`, diag.reasons);
+      }
+    }
   },
 });
 

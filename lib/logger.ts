@@ -23,14 +23,10 @@ export function createLogger(scope: string): Logger {
 
   return {
     debug: (...args: any[]) => {
-      if (IS_DEV) {
-        console.log(prefix, ...args);
-      }
+      console.log(prefix, '[DEBUG]', ...args);
     },
     info: (...args: any[]) => {
-      if (IS_DEV) {
-        console.info(prefix, ...args);
-      }
+      console.info(prefix, '[INFO]', ...args);
     },
     warn: (...args: any[]) => {
       // Warnings are displayed in both dev and production

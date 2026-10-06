@@ -17,5 +17,5 @@ export function getAdapter(url: string): BaseAdapter | null {
 }
 
 export function getSupportedSites(): string[] {
-  return ['komiku.org', 'komiku.id', 'kiryuu.id', 'komikcast.cz'];
+  return ['komiku.org', 'komiku.id', 'kiryuu.to', 'kiryuu.io', 'westmanga.my'];
 }

@@ -87,7 +87,6 @@ export function useClipperScanner() {
         response = await browser.tabs.sendMessage(tab.id, { action: 'scan' });
       } catch (err: any) {
         logger.debug('Initial scan message failed, attempting content script injection...', err.message);
-        // Content script belum aktif, inject dulu
         try {
           await browser.scripting.executeScript({
             target: { tabId: tab.id },
@@ -96,15 +95,15 @@ export function useClipperScanner() {
           response = await browser.tabs.sendMessage(tab.id, { action: 'scan' });
         } catch (injectErr: any) {
           logger.warn('Content script injection failed:', injectErr.message);
+          console.error('[KomikHQ:Popup] Content script injection error:', injectErr);
         }
       }
 
       if (!response?.ok) {
         logger.warn('Scan response not OK:', response?.error);
-        setErrorMsg(
-          response?.error ||
-            'Pastikan Anda berada di halaman baca komik (misal: komiku.org).',
-        );
+        const errMsg = response?.error || 'Content Script belum aktif pada halaman ini. Coba Refresh (F5) tab komik ini.';
+        console.warn('[KomikHQ:Popup] Scan failed with error:', errMsg);
+        setErrorMsg(errMsg);
         setView('unsupported');
         return;
       }

@@ -39,36 +39,29 @@ test.describe('Kiryuu DOM Analysis', () => {
 
       console.log(`📌 Comic Detail Page URL: ${page.url()}`);
 
-      const chapterLinks = await page.locator('#chapterlist a, .eplister a, a[href*="chapter"]').all();
-      const uniqueUrls: string[] = [];
+      const chapterLinks = page.locator('a[href*="/chapter-"]');
+      const count = await chapterLinks.count();
+      const targets: { label: string; url: string }[] = [];
 
-      for (const link of chapterLinks) {
-        const href = await link.getAttribute('href');
-        if (href) {
-          const fullUrl = href.startsWith('http') ? href : new URL(href, page.url()).toString();
-          if (!uniqueUrls.includes(fullUrl) && (fullUrl.includes('kiryuu') || fullUrl.includes('chapter'))) {
-            uniqueUrls.push(fullUrl);
-          }
-        }
+      if (count > 0) {
+        const firstHref = await chapterLinks.first().getAttribute('href');
+        const lastHref = await chapterLinks.last().getAttribute('href');
+        if (firstHref) targets.push({ label: 'NEWEST', url: firstHref.startsWith('http') ? firstHref : new URL(firstHref, page.url()).toString() });
+        if (lastHref) targets.push({ label: 'OLDEST', url: lastHref.startsWith('http') ? lastHref : new URL(lastHref, page.url()).toString() });
       }
 
-      console.log(`📊 Unique chapter URLs found: ${uniqueUrls.length}`);
+      console.log(`📊 Target chapter URLs found: ${targets.length}`);
 
-      if (uniqueUrls.length === 0) {
+      if (targets.length === 0) {
         console.log(`❌ No chapter links found for ${item.name}`);
         continue;
       }
-
-      const targets = [
-        { label: 'OLDEST', url: uniqueUrls[uniqueUrls.length - 1]! },
-        { label: 'NEWEST', url: uniqueUrls[0]! }
-      ];
 
       for (const ch of targets) {
         console.log(`\n  📖 Chapter [${ch.label}]: ${ch.url}`);
         await page.goto(ch.url, { waitUntil: 'domcontentloaded', timeout: 30000 });
 
-        const candidateSelectors = ['#readerarea', '.reader-area', '.rdnp'];
+        const candidateSelectors = ['#readerarea', '#ch-images', '.reading-content', '.reader-area', 'div:has(img[src*="cdn"])'];
         let activeContainerSelector = '';
 
         for (const sel of candidateSelectors) {
@@ -84,7 +77,7 @@ test.describe('Kiryuu DOM Analysis', () => {
           const imgs = await page.locator(`${activeContainerSelector} img`).all();
           console.log(`     Total <img> in container: ${imgs.length}`);
 
-          for (let i = 0; i < Math.min(imgs.length, 3); i++) {
+          for (let i = 0; i < Math.min(imgs.length, 5); i++) {
             const img = imgs[i]!;
             const src = (await img.getAttribute('src')) || '';
             const dataSrc = (await img.getAttribute('data-src')) || '';

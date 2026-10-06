@@ -25,6 +25,18 @@ export abstract class BaseAdapter {
   /** Extract image URLs sequentially */
   abstract getImageUrls(): string[];
 
+  /** Site-specific detailed diagnostic logs */
+  inspectDiagnostics(): { siteName: string; isReaderPage: boolean; containerFound: string | null; imageCount: number; skipCount: number; reasons: string[] } {
+    return {
+      siteName: this.constructor.name,
+      isReaderPage: this.isReaderPage(),
+      containerFound: null,
+      imageCount: 0,
+      skipCount: 0,
+      reasons: ['Diagnostic inspection not implemented for this adapter'],
+    };
+  }
+
   /** Referer header for fetching chapter images */
   getReferer(): string {
     return window.location.origin + '/';
