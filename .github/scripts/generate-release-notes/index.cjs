@@ -73,8 +73,7 @@ async function run() {
 
   const artifactTable = generateArtifactTable(repository, releaseTag);
   let prompt = fs.readFileSync(templatePath, 'utf8')
-    .replace('{{COMMIT_LOG}}', commitLog)
-    .replace('{{ARTIFACT_TABLE}}', artifactTable);
+    .replace('{{COMMIT_LOG}}', commitLog);
 
   const apiKey = process.env.GEMINI_API_KEY || loadLocalApiKey();
 
@@ -164,6 +163,8 @@ async function run() {
     let finalNotes = generatedText
       .replace(/\{\{GITHUB_REPOSITORY\}\}/g, repository)
       .replace(/\{\{RELEASE_VERSION\}\}/g, releaseTag);
+
+    finalNotes = `${finalNotes.trim()}\n\n${artifactTable.trim()}`;
 
     fs.writeFileSync(outputPath, finalNotes.trim() + '\n', 'utf8');
     console.log(`Release notes successfully generated and written to ${outputPath}`);

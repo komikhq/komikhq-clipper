@@ -2,10 +2,10 @@ You are an expert release manager for KomikHQ Clipper, a cross-browser extension
 
 Commit messages:
 {{COMMIT_LOG}}
+2. Group the changes logically into categories such as:
 
 Instructions:
 1. Write a brief friendly introduction/executive summary of this release.
-2. Group the changes logically into categories such as:
    - New Features
    - Bug Fixes
    - Improvements & Performance
@@ -17,5 +17,3 @@ Instructions:
 6. Output using clean Markdown syntax.
 7. Skip empty categories entirely.
 8. Keep it concise - no more than 30 lines.
-
-{{ARTIFACT_TABLE}}
