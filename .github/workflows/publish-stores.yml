@@ -21,75 +21,10 @@ env:
   RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag_name || github.event.release.tag_name || github.event.workflow_run.head_branch }}
 
 jobs:
-  # --- Stage 1: Build Extension Packages ---
-  build:
-    name: Build Extension Packages
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ env.RELEASE_TAG }}
-
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: pnpm
-
-      - name: Install Dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Extract Version from Tag
-        id: version
-        run: |
-          VERSION="${RELEASE_TAG#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "Building version: $VERSION"
-
-      - name: Patch Package Version
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          node -e "
-            const fs = require('fs');
-            const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
-            pkg.version = process.env.VERSION;
-            fs.writeFileSync('package.json', JSON.stringify(pkg, null, 2) + '\n');
-          "
-
-      - name: Typecheck
-        run: pnpm compile
-
-      - name: Build Chrome ZIP
-        run: pnpm zip
-
-      - name: Build Firefox ZIP
-        run: pnpm zip:firefox
-
-      - name: Upload Build Artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: extension-packages
-          retention-days: 1
-          path: |
-            .output/*-chrome.zip
-            .output/*-firefox.zip
-            .output/*-sources.zip
-
-  # --- Stage 2: Publish to Edge Add-ons ---
+  # --- Publish to Microsoft Edge Add-ons ---
   publish-edge:
     name: Publish to Edge Add-ons
-    needs: build
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -112,11 +47,14 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: extension-packages
-          path: .output
+      - name: Download Release Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p .output
+          gh release download "${RELEASE_TAG}" -R "${{ github.repository }}" -p "*.zip" -D .output
+          echo "Downloaded release zip packages:"
+          ls -la .output/
 
       - name: Publish to Edge
         env:
@@ -124,16 +62,16 @@ jobs:
           EDGE_CLIENT_ID: ${{ secrets.EDGE_CLIENT_ID }}
           EDGE_API_KEY: ${{ secrets.EDGE_API_KEY }}
         run: |
-          VERSION="${{ needs.build.outputs.version }}"
+          VERSION="${RELEASE_TAG#v}"
           pnpm tsx .github/scripts/publish-store/src/index.ts \
             --store edge \
-            --zip ".output/komikhq-clipper-${VERSION}-chrome.zip" \
+            --zip ".output/komikhq-clipper-${RELEASE_TAG}-chrome.zip" \
             --version "$VERSION"
 
-  # --- Stage 2: Publish to Mozilla AMO ---
+  # --- Publish to Mozilla Firefox AMO ---
   publish-firefox:
     name: Publish to Mozilla AMO
-    needs: build
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     steps:
@@ -156,11 +94,14 @@ jobs:
       - name: Install Dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Download Build Artifacts
-        uses: actions/download-artifact@v4
-        with:
-          name: extension-packages
-          path: .output
+      - name: Download Release Assets
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p .output
+          gh release download "${RELEASE_TAG}" -R "${{ github.repository }}" -p "*.zip" -D .output
+          echo "Downloaded release zip packages:"
+          ls -la .output/
 
       - name: Publish to Firefox
         env:
@@ -168,8 +109,8 @@ jobs:
           AMO_JWT_ISSUER: ${{ secrets.AMO_JWT_ISSUER }}
           AMO_JWT_SECRET: ${{ secrets.AMO_JWT_SECRET }}
         run: |
-          VERSION="${{ needs.build.outputs.version }}"
+          VERSION="${RELEASE_TAG#v}"
           pnpm tsx .github/scripts/publish-store/src/index.ts \
             --store firefox \
-            --zip-firefox ".output/komikhq-clipper-${VERSION}-firefox.zip" \
+            --zip-firefox ".output/komikhq-clipper-${RELEASE_TAG}-firefox.zip" \
             --version "$VERSION"
