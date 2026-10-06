@@ -1,9 +1,9 @@
 import { test } from '@playwright/test';
 
-// Exact slug mapping for komiku.org
+// Slugs for komiku.org
 const TITLES_TO_TEST = [
   { name: 'One Piece', slug: 'manga/komik-one-piece-indo' },
-  { name: 'Naruto', slug: 'manga/naruto-id' },
+  { name: 'Naruto', slug: 'manga/naruto-komik-indo' },
   { name: 'Boruto', slug: 'manga/boruto-id' },
   { name: 'Boruto Two Blue Vortex', slug: 'manga/boruto-two-blue-vortex-indo' },
   { name: 'Solo Leveling', slug: 'manga/solo-leveling-id' },
