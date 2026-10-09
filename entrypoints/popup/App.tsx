@@ -23,7 +23,7 @@ function ClipperContent() {
   } = useClipperScanner();
 
   return (
-    <div className="flex flex-col gap-3.5 p-4 flex-1 min-h-0 bg-background text-foreground transition-colors duration-200">
+    <div className="flex flex-col gap-3.5 p-4 bg-background text-foreground transition-colors duration-200">
       <Header />
 
       {/* Loading state */}

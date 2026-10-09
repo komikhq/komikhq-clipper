@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { createLogger } from '@/lib/logger';
+import { setBadgeText, setBadgeBackgroundColor } from '@/lib/extension-api';
 
 const logger = createLogger('Background');
 const FETCH_TIMEOUT_MS = 30000;
@@ -92,8 +93,8 @@ async function downloadChapterAsZip(
     referer,
   });
 
-  await browser.action.setBadgeText({ text: '0%', tabId });
-  await browser.action.setBadgeBackgroundColor({ color: '#3b82f6', tabId });
+  await setBadgeText('0%', tabId);
+  await setBadgeBackgroundColor('#3b82f6', tabId);
 
   try {
     await browser.runtime.sendMessage({
@@ -138,7 +139,7 @@ async function downloadChapterAsZip(
       downloaded++;
 
       const percent = Math.round((downloaded / total) * 100);
-      await browser.action.setBadgeText({ text: `${percent}%`, tabId });
+      await setBadgeText(`${percent}%`, tabId);
 
       logger.logEvent('DEBUG', 'IMAGE_FETCH_SUCCESS', `Downloaded image ${i + 1}/${total}`, {
         index: i,
@@ -174,8 +175,8 @@ async function downloadChapterAsZip(
   }
 
   if (downloaded === 0) {
-    await browser.action.setBadgeText({ text: 'ERR', tabId });
-    await browser.action.setBadgeBackgroundColor({ color: '#ef4444', tabId });
+    await setBadgeText('ERR', tabId);
+    await setBadgeBackgroundColor('#ef4444', tabId);
 
     logger.logEvent('ERROR', 'IMAGE_FETCH_FAILURE', 'Download pipeline failed: no images were successfully downloaded', {
       totalAttempted: total,
@@ -191,12 +192,12 @@ async function downloadChapterAsZip(
     errorCount: errors.length,
   });
 
-  await browser.action.setBadgeText({ text: 'ZIP', tabId });
+  await setBadgeText('ZIP', tabId);
   const dataUrl = await zip.generateAsync({ type: 'base64' });
   const zipFileName = `${chapterInfo.slug}.zip`;
 
-  await browser.action.setBadgeText({ text: 'OK', tabId });
-  await browser.action.setBadgeBackgroundColor({ color: '#10b981', tabId });
+  await setBadgeText('OK', tabId);
+  await setBadgeBackgroundColor('#10b981', tabId);
 
   logger.logEvent('INFO', 'ZIP_COMPRESSION_COMPLETE', 'ZIP archive generated successfully', {
     zipFileName,
@@ -238,7 +239,7 @@ export default defineBackground(() => {
   browser.alarms.onAlarm.addListener(async (alarm) => {
     if (alarm.name === 'clearBadge') {
       logger.logEvent('DEBUG', 'BADGE_CLEARED', 'Clearing badge text after alarm');
-      await browser.action.setBadgeText({ text: '' });
+      await setBadgeText('');
     }
   });
 
