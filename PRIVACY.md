@@ -1,6 +1,6 @@
 # Privacy Policy for KomikHQ Clipper
 
-**Last updated:** October 6, 2026
+**Last updated:** October 9, 2026
 
 KomikHQ Clipper ("the Extension", "we", "us", or "our") is an open-source browser extension developed by the KomikHQ team. We are committed to protecting your privacy. This Privacy Policy explains our practices regarding data collection, usage, and disclosure when you use the KomikHQ Clipper browser extension.
 
@@ -36,6 +36,7 @@ KomikHQ Clipper requests only the minimum set of permissions necessary to delive
 | `activeTab` | Allows the extension to interact with the currently active browser tab when opened, identifying if the user is currently viewing a comic chapter on a supported domain. |
 | `scripting` | Enables content script execution within the active reader tab DOM to detect chapter image elements and extract image URLs. |
 | `downloads` | Used exclusively to prompt and save the compiled, sequentially-named ZIP archive onto your local storage. |
+| `offscreen` | Used exclusively in Chromium-based browsers to host an isolated, headless document context for generating temporary Blob URLs required by `chrome.downloads.download`. Never accesses or tracks personal data. |
 | `alarms` | Used to schedule a temporary, delayed background alarm that automatically resets the extension badge status and counter after a download finishes, avoiding persistent background processes. |
 | `storage` | Used strictly with `browser.storage.local` to store your local preferences (such as the WebP conversion toggle and UI dark/light theme). This data never leaves your device. |
 | **Host Permissions** (`*://*.komiku.*`, `*://*.kiryuu.*`, `*://*.komikcast.*`, `*://*.ainzscans.*`) | Scoped strictly to supported comic reader websites to inject DOM parsers and fetch image blobs required to construct the downloadable chapter ZIP archive. No access is requested or executed outside these specific domains. |
@@ -44,9 +45,11 @@ KomikHQ Clipper requests only the minimum set of permissions necessary to delive
 
 ## 4. Local Storage Usage
 
-The extension uses the browser's local storage API (`browser.storage.local`) exclusively for:
+The extension uses the browser's local storage API (`browser.storage.local`) and client-side IndexedDB exclusively for:
 1. **User Interface Settings:** Remembering your preferred theme (light, dark, or system default).
 2. **Download Options:** Remembering your preference for WebP image conversion.
+3. **Session Download Sync:** Temporarily synchronizing chapter download progress so the popup can resume status if reopened.
+4. **Transient IndexedDB Bridge:** Storing temporary binary buffers locally during ZIP generation to bypass browser IPC limits. All data is deleted immediately from IndexedDB upon retrieval.
 
 This information is stored solely on your local computer or device and is never uploaded, synced, or shared with external servers.
 

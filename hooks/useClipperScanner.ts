@@ -132,7 +132,7 @@ export function useClipperScanner() {
       await attemptScan(tab.id);
     } catch (err: any) {
       logger.error('Error in initPopup:', err);
-      setErrorMsg(err.message || 'Terjadi kesalahan.');
+      setErrorMsg(err.message || 'An unexpected error occurred.');
       setView('unsupported');
     }
   }
@@ -162,7 +162,7 @@ export function useClipperScanner() {
 
     if (!response?.ok) {
       logger.warn('Scan response not OK:', response?.error);
-      const errMsg = response?.error || 'Content Script belum aktif pada halaman ini. Coba Refresh (F5) tab komik ini.';
+      const errMsg = response?.error || 'Content script is not active on this page. Please refresh (F5) the comic tab.';
       console.warn('[KomikHQ:Popup] Scan failed with error:', errMsg);
       setErrorMsg(errMsg);
       // Only set unsupported if we're not already showing download state
@@ -191,7 +191,7 @@ export function useClipperScanner() {
     if (!scanData || tabId === null) return;
     logger.info('User initiated download:', { chapter: scanData.chapterInfo.slug, total: scanData.imageUrls.length, convertToWebp });
     setView('downloading');
-    setProgress({ downloaded: 0, total: scanData.imageUrls.length, percent: 0, currentFile: 'Menyiapkan...' });
+    setProgress({ downloaded: 0, total: scanData.imageUrls.length, percent: 0, currentFile: 'Preparing...' });
 
     try {
       const result = await browser.runtime.sendMessage({
@@ -211,12 +211,12 @@ export function useClipperScanner() {
         setView('done');
       } else {
         logger.error('Background download failed:', result?.error);
-        setErrorMsg(result?.error || 'Gagal mengunduh.');
+        setErrorMsg(result?.error || 'Failed to download chapter.');
         setView('unsupported');
       }
     } catch (err: any) {
       logger.error('Error sending download message to background:', err);
-      setErrorMsg(err.message || 'Gagal mengunduh.');
+      setErrorMsg(err.message || 'Failed to download chapter.');
       setView('unsupported');
     }
   }

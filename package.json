@@ -2,7 +2,7 @@
   "name": "komikhq-clipper",
   "description": "Scan & download chapter comic images as a sequentially-named ZIP file for KomikHQ.",
   "private": true,
-  "version": "2.0.1",
+  "version": "2.0.2",
   "type": "module",
   "scripts": {
     "dev": "wxt",

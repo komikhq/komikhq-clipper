@@ -73,6 +73,8 @@ Built with [WXT](https://wxt.dev/), React 19, and TypeScript, the extension targ
 ## Features
 
 - **One-click chapter download** &mdash; scan and archive an entire chapter from the popup
+- **Resilient background downloading** &mdash; downloads and ZIP packaging execute reliably in the background service worker, continuing uninterrupted even if the popup is closed
+- **Detected image count badge** &mdash; toolbar badge displays the total number of detected chapter images immediately upon page load
 - **Sequential file naming** &mdash; images are zero-padded (`001.webp`, `002.webp`, ...) for correct sort order across all platforms
 - **Real-time progress tracking** &mdash; download progress is displayed in both the popup UI and the extension badge
 - **Multi-format support** &mdash; handles WebP, JPEG, PNG, GIF, and AVIF source images
@@ -186,20 +188,18 @@ Output artifacts are placed in the `.output/` directory.
 ```
 komikhq-clipper/
   entrypoints/
-    background.ts           Service worker: image fetching, ZIP generation, download orchestration
+    background.ts           Service worker: event dispatcher & lifecycle coordinator
     content.ts              Content script: page detection, adapter dispatch, DOM scanning
+    offscreen/              Chromium offscreen document context for Blob URL handling
     popup/                  React popup UI (App.tsx, styles, entry point)
   components/               Reusable UI components (Header, ChapterCard, DownloadProgress, ...)
     ui/                     shadcn/ui primitives (Button, Progress, ScrollArea)
   hooks/
     useClipperScanner.ts    Core React hook managing scan/download state machine
   lib/
-    adapters/
-      base-adapter.ts       Abstract base class defining the adapter interface
-      komiku.ts             Komiku site parser
-      kiryuu.ts             Kiryuu site parser
-      ainzscans.ts          AinzScans site parser
-      registry.ts           Auto-detection registry mapping URLs to adapters
+    adapters/               Site parsers (Komiku, Kiryuu, AinzScans) & auto-detect registry
+    background/             Badge management, download state store, offscreen manager
+    download/               Chapter downloader, image fetcher, zip saver, temp IndexedDB bridge
     logger.ts               Structured logging utility with scoped prefixes
   .github/
     scripts/publish-store/  TypeScript publisher CLI scripts for Edge & Firefox AMO
