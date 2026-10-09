@@ -100,16 +100,34 @@ export default defineContentScript({
       return false;
     });
 
-    // Auto-diagnostic on page load
-    const adapter = getAdapter(window.location.href);
-    logger.logEvent('DEBUG', 'AUTO_DETECT', 'Auto-detection result on page load', {
-      url: window.location.href,
-      adapterFound: adapter ? adapter.siteName : 'NONE',
-      siteId: adapter?.siteId ?? null,
-    });
+    // -----------------------------------------------------------------------
+    // Notify background of detected image count (for toolbar badge)
+    // -----------------------------------------------------------------------
+    let lastNotifiedCount = -1;
 
-    if (adapter) {
-      const diag = adapter.inspectDiagnostics();
+    function notifyImageCount(count: number): void {
+      if (count === lastNotifiedCount) return; // avoid duplicate messages
+      lastNotifiedCount = count;
+      try {
+        browser.runtime.sendMessage({ action: 'imagesDetected', count });
+        logger.logEvent('DEBUG', 'NOTIFY_IMAGE_COUNT', `Notified background of ${count} detected images`, { count });
+      } catch (err: any) {
+        logger.logEvent('WARN', 'NOTIFY_IMAGE_COUNT_FAILED', 'Failed to notify background of image count', {}, err);
+      }
+    }
+
+    /**
+     * Runs adapter diagnostics and notifies background of image count.
+     * Returns the detected image count.
+     */
+    function runDetectionAndNotify(): number {
+      const currentAdapter = getAdapter(window.location.href);
+      if (!currentAdapter) {
+        notifyImageCount(0);
+        return 0;
+      }
+
+      const diag = currentAdapter.inspectDiagnostics();
 
       logger.logEvent('INFO', 'AUTO_DIAGNOSTIC_SUMMARY', `Diagnostic summary for ${diag.siteName}`, {
         url: window.location.href,
@@ -128,13 +146,77 @@ export default defineContentScript({
           chapter: diag.chapterNumber,
           title: diag.chapterTitle,
         });
+        notifyImageCount(diag.imageCount);
       } else {
         logger.logEvent('WARN', 'AUTO_SCAN_WARNING', 'Zero images detected or not a reader page', {
           isReaderPage: diag.isReaderPage,
           imageCount: diag.imageCount,
           reasons: diag.reasons,
         });
+        notifyImageCount(0);
       }
+
+      return diag.imageCount;
+    }
+
+    // Auto-diagnostic on page load
+    const adapter = getAdapter(window.location.href);
+    logger.logEvent('DEBUG', 'AUTO_DETECT', 'Auto-detection result on page load', {
+      url: window.location.href,
+      adapterFound: adapter ? adapter.siteName : 'NONE',
+      siteId: adapter?.siteId ?? null,
+    });
+
+    // Initial detection attempt
+    const initialCount = runDetectionAndNotify();
+
+    // For SPA / lazy-load sites: retry detection if initial scan finds 0 images
+    // Uses a combination of scheduled retries + MutationObserver
+    if (adapter && initialCount === 0) {
+      logger.logEvent('DEBUG', 'LAZY_LOAD_RETRY', 'Initial image count is 0, setting up retry detection for dynamic content');
+
+      // Scheduled retries (500ms, 1.5s, 3s) for pages that render images after DOMContentLoaded
+      const retryDelays = [500, 1500, 3000];
+      let retryAborted = false;
+
+      for (const delay of retryDelays) {
+        setTimeout(() => {
+          if (retryAborted) return;
+          const count = runDetectionAndNotify();
+          if (count > 0) {
+            retryAborted = true;
+          }
+        }, delay);
+      }
+
+      // MutationObserver with debounce for truly dynamic SPA rendering
+      let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+      const observer = new MutationObserver(() => {
+        if (retryAborted) {
+          observer.disconnect();
+          return;
+        }
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          const count = runDetectionAndNotify();
+          if (count > 0) {
+            retryAborted = true;
+            observer.disconnect();
+            logger.logEvent('DEBUG', 'MUTATION_DETECTED_IMAGES', 'MutationObserver found images after DOM changes', { count });
+          }
+        }, 300);
+      });
+
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      });
+
+      // Safety: disconnect observer after 15 seconds to avoid memory leak
+      setTimeout(() => {
+        observer.disconnect();
+        if (debounceTimer) clearTimeout(debounceTimer);
+      }, 15000);
     }
   },
 });

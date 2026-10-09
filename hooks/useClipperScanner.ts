@@ -62,6 +62,11 @@ export function useClipperScanner() {
           currentFile: message.currentFile,
         });
       }
+      if (message.action === 'downloadComplete') {
+        logger.info('Download complete notification received:', message.zipFileName);
+        setProgress((p) => ({ ...p, percent: 100, currentFile: message.zipFileName }));
+        setView('done');
+      }
     };
     browser.runtime.onMessage.addListener(listener);
     return () => browser.runtime.onMessage.removeListener(listener);
@@ -82,39 +87,97 @@ export function useClipperScanner() {
       setHost(parsedHost);
       logger.debug('Active tab identified:', { tabId: tab.id, host: parsedHost, url: tab.url });
 
-      let response: ScanResult | null = null;
+      // Check if there is an active download for this tab (state syncing)
       try {
-        response = await browser.tabs.sendMessage(tab.id, { action: 'scan' });
-      } catch (err: any) {
-        logger.debug('Initial scan message failed, attempting content script injection...', err.message);
-        try {
-          await browser.scripting.executeScript({
-            target: { tabId: tab.id },
-            files: ['/content-scripts/content.js'],
-          });
-          response = await browser.tabs.sendMessage(tab.id, { action: 'scan' });
-        } catch (injectErr: any) {
-          logger.warn('Content script injection failed:', injectErr.message);
-          console.error('[KomikHQ:Popup] Content script injection error:', injectErr);
+        const downloadState = await browser.runtime.sendMessage({
+          action: 'getDownloadState',
+          tabId: tab.id,
+        });
+
+        if (downloadState) {
+          logger.info('Resuming display of active download state:', downloadState);
+
+          if (downloadState.state === 'downloading') {
+            // There's an active download — show progress
+            setProgress({
+              downloaded: downloadState.downloaded,
+              total: downloadState.total,
+              percent: downloadState.percent,
+              currentFile: downloadState.currentFile,
+            });
+
+            // We still need scan data for the ChapterCard, try to get it
+            await attemptScan(tab.id);
+            setView('downloading');
+            return;
+          }
+
+          if (downloadState.state === 'done') {
+            setProgress({
+              downloaded: downloadState.downloaded,
+              total: downloadState.total,
+              percent: 100,
+              currentFile: downloadState.zipFileName,
+            });
+            await attemptScan(tab.id);
+            setView('done');
+            return;
+          }
         }
+      } catch {
+        // No active download state or message failed — continue with normal scan
       }
 
-      if (!response?.ok) {
-        logger.warn('Scan response not OK:', response?.error);
-        const errMsg = response?.error || 'Content Script belum aktif pada halaman ini. Coba Refresh (F5) tab komik ini.';
-        console.warn('[KomikHQ:Popup] Scan failed with error:', errMsg);
-        setErrorMsg(errMsg);
-        setView('unsupported');
-        return;
-      }
-
-      logger.info('Scan successful in popup:', { chapter: response.chapterInfo.chapter, count: response.imageCount });
-      setScanData(response);
-      setView('ready');
+      // Normal flow: scan the page
+      await attemptScan(tab.id);
     } catch (err: any) {
       logger.error('Error in initPopup:', err);
       setErrorMsg(err.message || 'Terjadi kesalahan.');
       setView('unsupported');
+    }
+  }
+
+  /**
+   * Attempts to scan the page for chapter info and images.
+   * Sets the view to 'ready' on success or 'unsupported' on failure.
+   * Used both for normal init and for recovering scan data when resuming download state.
+   */
+  async function attemptScan(currentTabId: number): Promise<void> {
+    let response: ScanResult | null = null;
+    try {
+      response = await browser.tabs.sendMessage(currentTabId, { action: 'scan' });
+    } catch (err: any) {
+      logger.debug('Initial scan message failed, attempting content script injection...', err.message);
+      try {
+        await browser.scripting.executeScript({
+          target: { tabId: currentTabId },
+          files: ['/content-scripts/content.js'],
+        });
+        response = await browser.tabs.sendMessage(currentTabId, { action: 'scan' });
+      } catch (injectErr: any) {
+        logger.warn('Content script injection failed:', injectErr.message);
+        console.error('[KomikHQ:Popup] Content script injection error:', injectErr);
+      }
+    }
+
+    if (!response?.ok) {
+      logger.warn('Scan response not OK:', response?.error);
+      const errMsg = response?.error || 'Content Script belum aktif pada halaman ini. Coba Refresh (F5) tab komik ini.';
+      console.warn('[KomikHQ:Popup] Scan failed with error:', errMsg);
+      setErrorMsg(errMsg);
+      // Only set unsupported if we're not already showing download state
+      if (view === 'loading') {
+        setView('unsupported');
+      }
+      return;
+    }
+
+    logger.info('Scan successful in popup:', { chapter: response.chapterInfo.chapter, count: response.imageCount });
+    setScanData(response);
+
+    // Only transition to 'ready' if we're not already in a download-related state
+    if (view === 'loading') {
+      setView('ready');
     }
   }
 
@@ -142,29 +205,8 @@ export function useClipperScanner() {
 
       if (result?.ok) {
         logger.info('Download completed successfully:', result.zipFileName);
-        if (result.zipBase64) {
-          try {
-            const binaryString = atob(result.zipBase64);
-            const bytes = new Uint8Array(binaryString.length);
-            for (let i = 0; i < binaryString.length; i++) {
-              bytes[i] = binaryString.charCodeAt(i);
-            }
-            const blob = new Blob([bytes], { type: 'application/zip' });
-            const blobUrl = URL.createObjectURL(blob);
-            const anchor = document.createElement('a');
-            anchor.href = blobUrl;
-            anchor.download = result.zipFileName || 'chapter.zip';
-            anchor.style.display = 'none';
-            document.body.appendChild(anchor);
-            anchor.click();
-            setTimeout(() => {
-              anchor.remove();
-              URL.revokeObjectURL(blobUrl);
-            }, 1000);
-          } catch (e: any) {
-            logger.error('Failed to trigger Blob URL download:', e);
-          }
-        }
+        // Background has already saved the file via chrome.downloads.download!
+        // No need for DOM hack (anchor.click) anymore.
         setProgress((p) => ({ ...p, percent: 100, currentFile: result.zipFileName }));
         setView('done');
       } else {
@@ -192,4 +234,3 @@ export function useClipperScanner() {
     retryScan: initPopup,
   };
 }
-
